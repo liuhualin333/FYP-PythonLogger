@@ -78,16 +78,18 @@ class Move(SpookMixin, Base):
 
 class Keys(SpookMixin, Base):
 	text = Column(Binary, nullable=False)
+	asciiCode = Column(Integer, nullable=False)
 	holding = Column(Boolean, nullable=False)
 	time = Column(Float)
 
-	def __init__(self, text, holding, args):
+	def __init__(self, text, asciiCode, holding, args):
 		self.text = text
+		self.asciiCode = asciiCode
 		self.holding = holding
 		if self.holding:
 			self.time = args[0]
 	def __repr__(self):
 		if self.holding:
-			return "<Key %s hold for %f>" % (self.text, self.time)
+			return "<Key %s %s hold for %f>" % (self.text, self.asciiCode, self.time)
 		else:
-			return "<Key %s pressed>" % (self.text)
+			return "<Key %s %s pressed>" % (self.text, self.asciiCode)

@@ -34,8 +34,8 @@ def store_ditrigraph (ditrigraph, mode):
 	session.add(Ditrigraph(ditrigraph, mode))
 	trycommit()
 
-def store_key(key, holding, *args):
-	session.add(Keys(key, holding, args))
+def store_key(key, asciiCode, holding, *args):
+	session.add(Keys(key, asciiCode, holding, args))
 	trycommit()
 
 def got_mouse_click(category, x, y):
@@ -84,12 +84,12 @@ def got_key(key, pressing):
 
 	if pressing == False:
 		print finalstring
-		store_key(finalstring, False)
+		store_key(finalstring, key[1], False)
 	# Key holding
 	else:
 		holdtime = time.time() - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
-		store_key(finalstring, True, holdtime)
+		store_key(finalstring, key[1], True, holdtime)
 
 def got_key_idle(idle_time):
 	if idle_time > const.IDLE_THRESHOLD:

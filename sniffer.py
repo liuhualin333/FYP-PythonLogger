@@ -5,7 +5,11 @@ import threading
 import ctypes
 import time
 import const
+import re
 from collections import deque
+import win32gui
+import win32process
+import psutil
 
 class SnifferThread(threading.Thread):
     def __init__(self, hook):
@@ -22,7 +26,6 @@ class SnifferThread(threading.Thread):
         self.hm = hook
         self.keyboard_last_idle_time = time.time()
         self.keyboard_last_key = ["",0,time.time()] # [KEY_STATE, ASCII_CODE, TIME]
-        self.keyboard_last_but_two_key = ["",0,time.time()] # [KEY_STATE, ASCII_CODE, TIME]
         self.mouse_last_idle_time = time.time()
         self.mouse_path_start_time = time.time()
         self.mouse_path_end_time = time.time()
@@ -41,15 +44,36 @@ class SnifferThread(threading.Thread):
         self.hm.HookMouse()
         pythoncom.PumpMessages()
 
-    def UpdateLastButTwoKey(self, event):
-        self.keyboard_last_but_two_key[0] = self.keyboard_last_key[0]
-        self.keyboard_last_but_two_key[1] = self.keyboard_last_key[1]
-        self.keyboard_last_but_two_key[2] = self.keyboard_last_key[2]
-
-    def UpdateLastKey(self, event):
-        self.keyboard_last_key[0] = event.Key
+    def UpdateLastKey(self, event, keyVal):
+        self.keyboard_last_key[0] = keyVal
         self.keyboard_last_key[1] = event.Ascii
         self.keyboard_last_key[2] = time.time()
+
+    def CheckProcess(self, event):
+        fgWindow = win32gui.GetForegroundWindow()
+        threadID, ProcessID = win32process.GetWindowThreadProcessId(fgWindow)
+        procname = psutil.Process(ProcessID)
+        if procname.name() == "pythonw.exe":
+            return True
+        else:
+            return False
+    def IdentifyNonPrintChar(self, event):
+        keyname = event.Key
+        keyAscii = event.Ascii
+        finalkey = event.Key
+        if keyname in ["Lshift", "Rshift"]:
+            finalkey = 'Shift'
+        elif keyname in ["Lmenu", "Rmenu"]:
+            finalkey = 'Alt'
+        elif keyname in ["Rcontrol", "Lcontrol"]:
+            finalkey = 'Ctrl'
+        elif keyname in ["Rwin", "Lwin"]:
+            finalkey = 'Win Key'
+        elif keyname in const.SPECIAL_KEYS_NAME:
+            finalkey = keyname
+        else:
+            finalkey = keyname
+        return finalkey
 
     def OnKeyboardEvent(self, event):
         #For keyboard hold and keyboard idleness and record keydown
@@ -59,13 +83,18 @@ class SnifferThread(threading.Thread):
         # print 'Key:', event.Key
         # print 'KeyID:', event.KeyID
         # print '---'
+        if (not self.CheckProcess(event)):
+            self.keyboard_last_idle_time = time.time()
+            return True
+        keyVal = self.IdentifyNonPrintChar(event)
         if event.MessageName == 'key down' or event.MessageName == 'key sys down':
+            print 'Ascii:', event.Ascii, chr(event.Ascii)
             # For Keyboard idleness
             idle_time = time.time() - self.keyboard_last_idle_time
             self.key_idle_hook(idle_time)
             self.keyboard_last_idle_time = time.time()
             # For Key pressing behavior
-            if event.Key == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and (0 < idle_time < 0.1):
+            if keyVal == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and (0 < idle_time < 0.1):
                 # HOLD THE KEY
                 self.pressing = True
             else:
@@ -77,29 +106,28 @@ class SnifferThread(threading.Thread):
                     self.keyseq = deque(["", "", self.keyseq[2]])
                     self.digraph_found = False
                 # Not counted when other special char is entered
-                if event.Key not in const.SPECIAL_KEYS_NAME:
+                if keyVal not in const.SPECIAL_KEYS_NAME:
                     self.keyseq.popleft()
-                    self.keyseq.append(event.Key)
+                    self.keyseq.append(keyVal)
                 else:
                     self.keyseq = deque(["", "", ""])
                 potential_seq = self.keyseq[0] + self.keyseq[1] + self.keyseq[2]
                 potential_di_1 = self.keyseq[0] + self.keyseq[1]
                 print potential_seq
-                print potential_di_1
+                print potential_di_1  
                 if potential_seq.lower() in const.TRIGRAPH_LIST:
                     self.ditrigraph_hook(potential_seq, "trigraph")
                     self.trigraph_found = True
                 elif potential_di_1.lower() in const.DIGRAPH_LIST:
                     self.ditrigraph_hook(potential_di_1, "digraph")
                     self.digraph_found = True
-                self.UpdateLastButTwoKey(event)
-                self.UpdateLastKey(event)
+                self.UpdateLastKey(event, keyVal)
                 self.pressing = False
             # Record every key down
             if self.pressing == False:
                 self.key_down_hook(self.keyboard_last_key, self.pressing)
         if event.MessageName == 'key up':
-            if event.Key == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and self.pressing:
+            if keyVal == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and self.pressing:
                 self.key_down_hook(self.keyboard_last_key, self.pressing)
                 self.keyboard_last_key[2] = time.time()
                 self.pressing = False
@@ -113,6 +141,9 @@ class SnifferThread(threading.Thread):
         # print 'Wheel:',event.Wheel
         # print 'Injected:',event.Injected
         # print '---'
+        if (not self.CheckProcess(event)):
+            self.mouse_last_idle_time = time.time()
+            return True
         idle_time = time.time() - self.mouse_last_idle_time
         self.mouse_idle_hook(idle_time)
         self.mouse_last_idle_time = time.time()
@@ -128,6 +159,9 @@ class SnifferThread(threading.Thread):
     def OnMouseMove(self, event):
         # print 'Position:',event.Position
         # print '---'
+        if (not self.CheckProcess(event)):
+            self.mouse_last_idle_time = time.time()
+            return True
         idle_time = time.time() - self.mouse_last_idle_time
         self.mouse_idle_hook(idle_time)
         self.mouse_last_idle_time = time.time()
@@ -137,13 +171,16 @@ class SnifferThread(threading.Thread):
             if len(self.mouse_path) == 0:
                 self.mouse_path_start_time = time.time()
             self.mouse_path.append(event.Position)
-        else:
+        elif len(self.mouse_path) != 0:
             self.mouse_path_end_time = time.time() - idle_time
             self.mouse_move_hook(self.mouse_path, self.mouse_path_start_time, self.mouse_path_end_time)
             self.mouse_path = []
         return True
 
     def OnMouseWheel(self, event):
+        if (not self.CheckProcess(event)):
+            self.mouse_last_idle_time = time.time()
+            return True
         loc = event.Position
         if event.MessageName == "mouse wheel":
             if event.Wheel == -1:
