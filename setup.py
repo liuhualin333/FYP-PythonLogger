@@ -14,11 +14,11 @@ print '"%s"' % requires
 
 from setuptools import setup
 
-setup(name='HuaBaLogger',
+setup(name='HBLogger',
       version='0.1',
-      description='A Logger to record your keyboard and mouse behaviour',
-      url='https://github.com/liuhualin333/FYP-PythonLogger',
-      author='HuaBa',
+      description='A Python Logger used to record your keyboard and mouse behaviour',
+      url='https://github.com/liuhualin333/HBLogger',
+      author='Liu Hualin',
       install_requires=requires,
-      packages=['HuaBaLogger'],
-      entry_points=dict(console_scripts=['HuaBaLog=HuaBaLogger:main']))
+      packages=['HBLogger'],
+      entry_points=dict(console_scripts=['HBLogger=HBLogger:main']))
