@@ -1,3 +1,0 @@
-[console_scripts]
-HBLogger = HBLogger:main
-
