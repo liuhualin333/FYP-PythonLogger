@@ -19,6 +19,9 @@ setup(name='HBLogger',
       description='A Python Logger used to record your keyboard and mouse behaviour',
       url='https://github.com/liuhualin333/HBLogger',
       author='Liu Hualin',
+      setup_requires=['pyHook==1.5.1', 'pywin32==221'],
+      #Hard coded value for dependencies which cannot be downloaded through pypi
+      dependency_links=['https://sourceforge.net/projects/pyhook/files/pyhook/1.5.1/pyHook-1.5.1.win32-py2.7.exe/download', 'https://sourceforge.net/projects/pywin32/files/pywin32/Build%20221/pywin32-221.win32-py2.7.exe/download'],
       install_requires=requires,
       packages=['HBLogger'],
       entry_points=dict(console_scripts=['HBLogger=HBLogger:main']))
