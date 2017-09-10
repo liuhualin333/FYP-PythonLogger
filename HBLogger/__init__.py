@@ -1,5 +1,13 @@
-import sniffer
 import hook
+import sys
+import platform
+
+if platform.system() == 'Darwin':
+    from HBLogger import sniffer_Mac as sniffer
+elif platform.system() == 'Windows':
+    from HBLogger import sniffer as sniffer
+else:
+    sys.exit(0)
 
 def main():
 	try:

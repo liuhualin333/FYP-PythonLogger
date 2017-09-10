@@ -5,7 +5,6 @@ import threading
 import ctypes
 import time
 import const
-import re
 from collections import deque
 import win32gui
 import win32process
