@@ -5,7 +5,7 @@ import platform
 if platform.system() == 'Darwin':
     from HBLogger import sniffer_Mac as sniffer
 elif platform.system() == 'Windows':
-    from HBLogger import sniffer as sniffer
+    from HBLogger import sniffer_Win as sniffer
 else:
     sys.exit(0)
 

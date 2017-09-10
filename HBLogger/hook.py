@@ -10,11 +10,18 @@ fname = "log.db"
 name = "log"
 ext = "db"
 extnum = 0;
-if os.path.isfile(fname):
-	while os.path.isfile(fname):
-		extnum += 1
-		fname = name+'_'+str(extnum)+'.'+ext
-session_maker = models.initialize(fname)
+
+path = os.path.expanduser("~/.HBLog")
+
+try:
+    os.makedirs(path)
+except OSError:
+    pass
+
+while os.path.isfile(os.path.join(path, fname)):
+	extnum += 1
+	fname = name+'_'+str(extnum)+'.'+ext
+session_maker = models.initialize(os.path.join(path, fname))
 session = session_maker()
 
 def trycommit():
