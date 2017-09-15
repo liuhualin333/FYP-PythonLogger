@@ -13,7 +13,7 @@ import psutil
 class SnifferThread(threading.Thread):
     def __init__(self, hook):
         threading.Thread.__init__(self)
-        self.daemon = True # The entire python program exit when daemon thread left
+        self.daemon = True # Daemon Thread left when main thread left
         self.encoding = sys.stdin.encoding
         self.ditrigraph_hook = lambda x: True
         self.key_down_hook = lambda x: True
