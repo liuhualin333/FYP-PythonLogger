@@ -3,8 +3,6 @@ import os, sys, platform
 
 if platform.system() == "Windows":
     req_file = "win-requirements.txt"
-elif platform.system() == "Darwin":
-    req_file = "osx-requirements.txt"
 else:
     print("This logger only works for Windows and Mac")
     sys.exit(0)
@@ -29,15 +27,7 @@ if platform.system() == "Windows":
           install_requires=requires,
           packages=['HBLogger'],
           entry_points=dict(console_scripts=['HBLogger=HBLogger:main']))
-elif platform.system() == 'Darwin':
-    setup(name='HBLogger',
-          version='0.1',
-          description='A Python Logger used to record your keyboard and mouse behaviour',
-          url='https://github.com/liuhualin333/HBLogger',
-          author='Liu Hualin',
-          install_requires=requires,
-          packages=['HBLogger'],
-          entry_points=dict(console_scripts=['HBLogger=HBLogger:main']))
 else:
+    print ("Your system must be windows")
     pass
 
