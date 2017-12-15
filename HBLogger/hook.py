@@ -58,8 +58,8 @@ def store_idle(idle_time, mode, timestamp):
 	session.add(Idle(idle_time, mode, timestamp))
 	trycommit()
 
-def store_key(key, asciiCode, holding, timestamp, *args):
-	session.add(Keys(key, asciiCode, holding, timestamp, args))
+def store_key(key, holding, timestamp, *args):
+	session.add(Keys(key, holding, timestamp, args))
 	trycommit()
 
 def got_mouse_click(category, x, y):
@@ -91,10 +91,15 @@ def got_mouse_move(mouse_path, start_time, end_time):
 	move_list.append([duration,length,time.time()])
 	#store_move((end_time - start_time), len(mouse_path))
 
-def got_key(key, pressing):
+def got_key(key, pressing, combo_state):
 	modifiers = []
 	keyname = key[0]
-	asciikey = chr(key[1])
+	if (combo_state != "0000"):
+		asciikey = key[1]
+		string = asciikey
+	else:
+		asciikey = chr(key[1])
+		string = unicode(asciikey)
 	keyHoldStart = key[2]
 	if keyname in ["Lshift", "Rshift"]:
 	    modifiers.append('Shift')
@@ -106,22 +111,47 @@ def got_key(key, pressing):
 	    modifiers.append('Win Key')
 	elif keyname in const.SPECIAL_KEYS_NAME:
 	    modifiers.append(keyname)
-	string = unicode(asciikey)
 	# No key holding
-	if len(modifiers) >= 1:
-		finalstring = ' '.join(modifiers)
-	elif len(string) >= 1:
-		finalstring = string
-
+	if (combo_state == "0000"):
+		if len(modifiers) >= 1:
+			finalstring = ' '.join(modifiers)
+		elif len(string) >= 1:
+			finalstring = string
+	else:
+		# Combo key maybe ongoing
+		if len(modifiers) >= 1 and (modifiers[0] is "Shift" or modifiers[0] is "Alt" or modifiers[0] is "Ctrl" or modifiers[0] is "Win Key"):
+			return
+		else:
+			finalstring = ""
+			# If combo has Ctrl, it must appear first
+			if (combo_state[0] == "1"):
+				finalstring += "Ctrl+"
+			# If combo has Shift or Alt, it might appear in the second place but only one will appear
+			if (combo_state[1:4] == "100" or combo_state[1:4] == "010"):
+				if combo_state[1:4] == "100":
+					finalstring += "Shift+"
+				elif combo_state[1:4] == "010":
+					finalstring += "Alt+"
+			# For combo start with win
+			if (combo_state == "0001"):
+				finalstring += "Win+"
+			if (finalstring == ""):
+				# Illegal combination
+				return
+			else:
+				if len(modifiers) >= 1:
+					finalstring += ' '.join(modifiers)
+				elif len(string) >= 1:
+					finalstring += string
 	if pressing == False:
 		print finalstring
-		key_list.append([finalstring, key[1], False,time.time()])
+		key_list.append([finalstring, False, time.time()])
 		#store_key(finalstring, key[1], False)
 	# Key holding
 	else:
 		holdtime = time.time() - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
-		key_list.append([finalstring, key[1], True, time.time(), holdtime])
+		key_list.append([finalstring, True, time.time(), holdtime])
 		#store_key(finalstring, key[1], True, holdtime)
 
 def got_key_idle(idle_time):
@@ -154,10 +184,10 @@ def write_data():
 		elif (wheelFlag):
 			# Same wheel direction
 			if (click[0] == wheelDirection):
-				# In one wheel action
+				# In one wheel action within threshold
 				if (click[3] - wheelTime < const.WHEEL_THRESHOLD):
 					wheelTime = click[3]
-				# In different wheel action
+				# In different wheel action (exceed threshold)
 				else:
 					# Store the wheel action
 					wheelFlag = False
@@ -176,9 +206,9 @@ def write_data():
 		store_move(move[0], move[1], move[2])
 	for key in key_list:
 		if (len(key) < 5):
-			store_key(key[0],key[1], key[2], key[3])
+			store_key(key[0], key[1], key[2])
 		else:
-			store_key(key[0],key[1], key[2], key[3], key[4])
+			store_key(key[0], key[1], key[2], key[3])
 	for idle in idle_list:
 		store_idle(idle[0], idle[1], idle[2])
 	print("Dataset recorded")

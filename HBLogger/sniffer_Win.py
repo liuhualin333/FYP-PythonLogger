@@ -24,7 +24,7 @@ class SnifferThread(threading.Thread):
 
         self.hm = hook
         self.keyboard_last_idle_time = time.time()
-        self.keyboard_last_key = ["",0,self.keyboard_last_idle_time] # [KEY_STATE, ASCII_CODE, TIME]
+        self.keyboard_last_key = ["",0,self.keyboard_last_idle_time,"0000"] # [KEY_STATE, ASCII_CODE, TIME, HOLD_STATE]
         self.mouse_last_idle_time = self.keyboard_last_idle_time
         self.mouse_path_start_time = self.keyboard_last_idle_time
         self.mouse_path_end_time = self.keyboard_last_idle_time
@@ -44,10 +44,44 @@ class SnifferThread(threading.Thread):
         self.hm.HookMouse()
         pythoncom.PumpMessages()
 
-    def UpdateLastKey(self, event, keyVal, current_time):
-        self.keyboard_last_key[0] = keyVal
-        self.keyboard_last_key[1] = event.Ascii
-        self.keyboard_last_key[2] = current_time
+    def CheckSpecialKeyState(self):
+        ctrl_pressed = "1" if (pyHook.GetKeyState(pyHook.HookConstants.VKeyToID('VK_CONTROL'))) else "0"
+        shift_pressed = "1" if (pyHook.GetKeyState(pyHook.HookConstants.VKeyToID('VK_SHIFT'))) else "0"
+        alt_pressed = "1" if (pyHook.GetKeyState(pyHook.HookConstants.VKeyToID('VK_MENU'))) else "0"
+        win_pressed = "1" if (pyHook.GetKeyState(pyHook.HookConstants.VKeyToID('VK_LWIN'))) else "0"
+
+        return ctrl_pressed + shift_pressed + alt_pressed + win_pressed
+
+    def CheckComboStateTransit(self, last_state, state):
+        if (last_state == "0000" or state == "0000" or last_state == state):
+            return True
+        elif (last_state == "1000"):
+            return (state == "1000" or state == "1100" or state == "1010")
+        elif (last_state == "0100"):
+            return (state == "0100")
+        elif (last_state == "0010"):
+            return (state == "0010")
+        elif (last_state == "0001"):
+            return (state == "0001")
+
+    def ComboStateToKey(self, state):
+        keyList = []
+        if(state[0] == "1"):
+            keyList.append("Ctrl")
+        if(state[1] == "1"):
+            keyList.append("Shift")
+        if(state[2] == "1"):
+            keyList.append("Alt")
+        if(state[3] == "1"):
+            keyList.append("Win Key")
+        return keyList
+
+
+    def UpdateLastKey(self, event, keyVal, current_time, combo_state):
+        if (combo_state == "0000"):
+            self.keyboard_last_key = [keyVal, event.Ascii, current_time, combo_state]
+        else:    
+            self.keyboard_last_key = [keyVal, pyHook.HookConstants.IDToName(event.KeyID), current_time, combo_state]
 
     # Record the event only on specific program
     def CheckProcess(self, event):
@@ -115,36 +149,36 @@ class SnifferThread(threading.Thread):
         # print 'Key:', event.Key
         # print 'KeyID:', event.KeyID
         # print '---'
-
+        
         current_time, idle_time, is_IDE = self.HandleIdleEvent(event, "keyboard")
 
         if (is_IDE == False):
             return True
         keyVal = self.IdentifyNonPrintChar(event)
+        # Check whether it is a combo
+        combo_state = self.CheckSpecialKeyState()
         if event.MessageName == 'key down' or event.MessageName == 'key sys down':
+            print combo_state
             print 'Ascii:', event.Ascii, chr(event.Ascii)
-            
+            # If Transition is wrong
+            if (not self.CheckComboStateTransit(self.keyboard_last_key[3], combo_state)):
+                print "Transition is wrong"
+                self.UpdateLastKey(event, keyVal, current_time, "0000")
+                self.key_down_hook(self.keyboard_last_key, self.pressing, "0000")
+                self.pressing = False
             # For Key pressing behavior
-            if keyVal == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and (0 < idle_time < 0.06):
+            if keyVal == self.keyboard_last_key[0] and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000")) and (0 < idle_time < 0.06):
                 # HOLD THE KEY
                 self.pressing = True
             else:
-                # Not counted when other special char is entered
-                if keyVal not in const.SPECIAL_KEYS_NAME:
-                    self.keyseq.popleft()
-                    self.keyseq.append(keyVal)
-                else:
-                    self.keyseq = deque(["", "", ""])
-                potential_seq = self.keyseq[0] + self.keyseq[1] + self.keyseq[2]
-                print potential_seq 
-                self.UpdateLastKey(event, keyVal, current_time)
+                self.UpdateLastKey(event, keyVal, current_time, combo_state)
                 self.pressing = False
             # Record every key down
-            if self.pressing == False:
-                self.key_down_hook(self.keyboard_last_key, self.pressing)
+            if not self.pressing:
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state)
         elif event.MessageName == 'key up':
-            if keyVal == self.keyboard_last_key[0] and event.Ascii == self.keyboard_last_key[1] and self.pressing:
-                self.key_down_hook(self.keyboard_last_key, self.pressing)
+            if ((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000"))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3]) and self.pressing:
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state)
                 self.keyboard_last_key[2] = current_time
                 self.pressing = False
         return True
@@ -161,6 +195,9 @@ class SnifferThread(threading.Thread):
         current_time, _, is_IDE = self.HandleIdleEvent(event, "mouse")
 
         if (is_IDE == False):
+            self.drag_flag = False
+            self.drag_time = current_time
+            self.drag_coord = "0_0"
             return True
         loc = event.Position
         if event.MessageName == "mouse right down":
