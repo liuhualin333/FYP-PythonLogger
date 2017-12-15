@@ -34,6 +34,7 @@ class SnifferThread(threading.Thread):
         self.drag_flag = False # Drag flag
         self.drag_time = self.keyboard_last_idle_time
         self.drag_coord = "0_0"
+        self.transit = True
 
     def run(self):
         self.hm.KeyAll = self.OnKeyboardEvent
@@ -52,17 +53,17 @@ class SnifferThread(threading.Thread):
 
         return ctrl_pressed + shift_pressed + alt_pressed + win_pressed
 
-    def CheckComboStateTransit(self, last_state, state):
-        if (last_state == "0000" or state == "0000" or last_state == state):
+    def CheckComboStateTransit(self, state, keyval):
+        if (state == "0000"):
             return True
-        elif (last_state == "1000"):
-            return (state == "1000" or state == "1100" or state == "1010")
-        elif (last_state == "0100"):
-            return (state == "0100")
-        elif (last_state == "0010"):
-            return (state == "0010")
-        elif (last_state == "0001"):
-            return (state == "0001")
+        elif (state == "1000"):
+            return (keyval != "Win Key")
+        elif (state == "0100"):
+            return (keyval == "Shift")
+        elif (state == "0010"):
+            return (keyval == "Alt")
+        elif (state == "0001"):
+            return (keyval == "Win Key")
 
     def ComboStateToKey(self, state):
         keyList = []
@@ -80,6 +81,7 @@ class SnifferThread(threading.Thread):
     def UpdateLastKey(self, event, keyVal, current_time, combo_state):
         if (combo_state == "0000"):
             self.keyboard_last_key = [keyVal, event.Ascii, current_time, combo_state]
+        # Correctly translate combination key
         else:    
             self.keyboard_last_key = [keyVal, pyHook.HookConstants.IDToName(event.KeyID), current_time, combo_state]
 
@@ -91,10 +93,7 @@ class SnifferThread(threading.Thread):
             procname = psutil.Process(ProcessID)
         except:
             return False
-        if procname.name() == "pythonw.exe":
-            return True
-        else:
-            return False
+        return procname.name() == "pythonw.exe"
 
     # Handle the update of idle variable and run idle hook
     def HandleIdleEvent(self, event, mode):
@@ -125,7 +124,6 @@ class SnifferThread(threading.Thread):
 
     def IdentifyNonPrintChar(self, event):
         keyname = event.Key
-        keyAscii = event.Ascii
         finalkey = event.Key
         if keyname in ["Lshift", "Rshift"]:
             finalkey = 'Shift'
@@ -161,11 +159,9 @@ class SnifferThread(threading.Thread):
             print combo_state
             print 'Ascii:', event.Ascii, chr(event.Ascii)
             # If Transition is wrong
-            if (not self.CheckComboStateTransit(self.keyboard_last_key[3], combo_state)):
+            if (not self.CheckComboStateTransit(combo_state, keyVal)):
                 print "Transition is wrong"
-                self.UpdateLastKey(event, keyVal, current_time, "0000")
-                self.key_down_hook(self.keyboard_last_key, self.pressing, "0000")
-                self.pressing = False
+                self.transit = False
             # For Key pressing behavior
             if keyVal == self.keyboard_last_key[0] and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000")) and (0 < idle_time < 0.06):
                 # HOLD THE KEY
@@ -175,10 +171,13 @@ class SnifferThread(threading.Thread):
                 self.pressing = False
             # Record every key down
             if not self.pressing:
-                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state)
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit)
         elif event.MessageName == 'key up':
-            if ((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000"))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3]) and self.pressing:
-                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state)
+            print event.Ascii
+            if (not self.transit and (combo_state == "1000" or combo_state == "0100" or combo_state == "0010" or combo_state == "0000") and event.Ascii != 0):
+                self.transit = True
+            if (((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000"))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3])) and self.pressing:
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit)
                 self.keyboard_last_key[2] = current_time
                 self.pressing = False
         return True
@@ -279,6 +278,7 @@ class Sniffer:
             self.cancel()
 
     def cancel(self):
+        # Write data to sqlite database
         self.write_data_hook()
         ctypes.windll.user32.PostQuitMessage(0)
         self.hm.UnhookKeyboard()
