@@ -9,7 +9,7 @@ from collections import deque
 import win32gui
 import win32process
 import psutil
-import Queue
+import math
 
 class SnifferThread(threading.Thread):
     def __init__(self, hook):
@@ -28,6 +28,8 @@ class SnifferThread(threading.Thread):
         self.mouse_last_idle_time = self.keyboard_last_idle_time
         self.mouse_path_start_time = self.keyboard_last_idle_time
         self.mouse_path_end_time = self.keyboard_last_idle_time
+        self.mouse_path_last_pos = None
+        self.mouse_path_length = 0
         self.pressing = False
         self.mouse_path = [] # A list of coordinates of mouse for one movement
         self.keyseq = deque(["", "", ""]) # Record the last key sequence
@@ -77,6 +79,11 @@ class SnifferThread(threading.Thread):
             keyList.append("Win Key")
         return keyList
 
+    def CalculateEuclideanLength(self, last_pos, curr_pos):
+        x = (last_pos[0], last_pos[1])
+        y = (curr_pos[0], curr_pos[1])
+        distance = math.sqrt(sum([(a-b)**2 for a,b in zip(x,y)]))
+        return distance
 
     def UpdateLastKey(self, event, keyVal, current_time, combo_state):
         if (combo_state == "0000"):
@@ -150,7 +157,7 @@ class SnifferThread(threading.Thread):
         
         current_time, idle_time, is_IDE = self.HandleIdleEvent(event, "keyboard")
 
-        if (is_IDE == False):
+        if (not is_IDE):
             return True
         keyVal = self.IdentifyNonPrintChar(event)
         # Check whether it is a combo
@@ -193,7 +200,7 @@ class SnifferThread(threading.Thread):
 
         current_time, _, is_IDE = self.HandleIdleEvent(event, "mouse")
 
-        if (is_IDE == False):
+        if (not is_IDE):
             self.drag_flag = False
             self.drag_time = current_time
             self.drag_coord = "0_0"
@@ -223,24 +230,39 @@ class SnifferThread(threading.Thread):
 
         current_time, idle_time, is_IDE = self.HandleIdleEvent(event, "mouse")
 
-        if (is_IDE == False):
+        if (not is_IDE):
+            if (len(self.mouse_path) != 0):
+                self.mouse_path_end_time = time.time()
+                self.mouse_move_hook(self.mouse_path_length, self.mouse_path_start_time, self.mouse_path_end_time)
+                self.mouse_path = []
+                self.mouse_path_last_pos = None
+                self.mouse_path_length = 0
             return True
         # print idle_time
         if idle_time < const.MOUSE_IDLE_THRESHOLD:
             # Mouse is moving
             if len(self.mouse_path) == 0:
                 self.mouse_path_start_time = current_time
-            self.mouse_path.append(event.Position)
+                self.mouse_path_last_pos = event.Position
+                self.mouse_path.append(event.Position)
+            else:
+                # TODO: Calculate length
+                length = self.CalculateEuclideanLength(self.mouse_path_last_pos,event.Position)
+                self.mouse_path_length += length
+                self.mouse_path.append(event.Position)
+                self.mouse_path_last_pos = event.Position
         elif len(self.mouse_path) != 0:
             self.mouse_path_end_time = current_time - idle_time
-            self.mouse_move_hook(self.mouse_path, self.mouse_path_start_time, self.mouse_path_end_time)
+            self.mouse_move_hook(self.mouse_path_length, self.mouse_path_start_time, self.mouse_path_end_time)
             self.mouse_path = []
+            self.mouse_path_last_pos = None
+            self.mouse_path_length = 0
         return True
 
     def OnMouseWheel(self, event):
         current_time, _, is_IDE = self.HandleIdleEvent(event, "mouse")
 
-        if (is_IDE == False):
+        if (not is_IDE):
             return True
         loc = event.Position
         if event.MessageName == "mouse wheel":

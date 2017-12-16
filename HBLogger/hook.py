@@ -106,8 +106,7 @@ def got_mouse_click(category, x, y):
 	click_list.append([button,x,y,time.time()])
 	#store_click(button, x, y)
 
-def got_mouse_move(mouse_path, start_time, end_time):
-	length = len(mouse_path)
+def got_mouse_move(length, start_time, end_time):
 	duration = end_time - start_time
 	print "Length: %d, Duration: %fs" % (length, duration)
 	move_list.append([duration,length,time.time()])

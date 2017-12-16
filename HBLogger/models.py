@@ -57,12 +57,12 @@ class Idle(SpookMixin, Base):
 
 class Move(SpookMixin, Base):
 	time = Column(Float, nullable=False)
-	nrmoves = Column(Integer, nullable=False)
+	length = Column(Float, nullable=False)
 	timestamp = Column(Float, nullable=False)
 
-	def __init__(self, time, nrmoves, timestamp):
+	def __init__(self, time, length, timestamp):
 		self.time = time
-		self.nrmoves = nrmoves
+		self.length = length
 		self.timestamp = timestamp
 
 
