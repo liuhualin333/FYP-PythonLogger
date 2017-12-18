@@ -55,17 +55,20 @@ class SnifferThread(threading.Thread):
 
         return ctrl_pressed + shift_pressed + alt_pressed + win_pressed
 
+    def IsSpecialKey(self, key):
+        return (key == "Shift" or key == "Ctrl" or key == "Alt" or key == "Win Key")
+
     def CheckComboStateTransit(self, state, keyval):
         if (state == "0000"):
             return True
         elif (state == "1000"):
             return (keyval != "Win Key")
         elif (state == "0100"):
-            return (keyval == "Shift")
+            return (keyval == "Shift" or not self.IsSpecialKey(keyval))
         elif (state == "0010"):
-            return (keyval == "Alt")
+            return (keyval == "Alt" or not self.IsSpecialKey(keyval))
         elif (state == "0001"):
-            return (keyval == "Win Key")
+            return (keyval == "Win Key" or not self.IsSpecialKey(keyval))
 
     def ComboStateToKey(self, state):
         keyList = []

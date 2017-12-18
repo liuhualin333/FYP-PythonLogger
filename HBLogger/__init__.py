@@ -1,13 +1,25 @@
 import hook
 import sys
 import platform
+import functool
+import signal
 
 if platform.system() == 'Windows':
     from HBLogger import sniffer_Win as sniffer
 else:
     sys.exit(0)
 
+sniffer1 = None
+
+def exit_signal_handler(signal,frame):
+	print("Terminate signal received")
+	if (sniffer1 != None):
+		sniffer1.cancel()
+		
+signal.signal(signal.SIGINT, exit_signal_handler)
+
 def main():
+	global sniffer1
 	try:
 		sniffer1 = sniffer.Sniffer()
 		sniffer1.key_down_hook = hook.got_key
