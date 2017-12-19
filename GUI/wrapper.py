@@ -31,6 +31,7 @@ def main(mode):
 		address = ('localhost', 6000)
 		conn = Client(address, authkey="secret")
 		conn.send("close")
+		conn.close()
 
 	if (mode == "listener"):
 		signal.signal(signal.SIGINT, exit_signal_handler)
