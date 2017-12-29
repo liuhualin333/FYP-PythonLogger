@@ -99,7 +99,7 @@ class GUI:
 		self.toggleGridConfig("row",[2,3,4,5],[1,1,1,1])
 		self.label.grid_forget()
 		self.createScale()
-		if (self.less_15_flag):
+		if (not self.less_15_flag):
 			self.createScale()
 			self.less_15_flag = False
 		self.addScale()
@@ -117,10 +117,10 @@ class GUI:
 	def resetWidgetForSurvey(self):
 		session = ["first", "second", "third"]
 		if (self.session < 2):
-			self.session += 1
 			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % session[self.session])
 		else:
 			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you finish experiment")
+		self.session += 1
 		self.timer.grid_forget()
 		self.fast_forward_button.grid_forget()
 		self.survey_button.grid(row=1,column=1)
@@ -141,7 +141,7 @@ class GUI:
 		self.toggleGridConfig("row",[2,3,4,5],[1,0,0,0])
 		session = ["first", "second", "third"]
 		self.label.grid(row=0, column=1)
-		if (self.session < 2):
+		if (self.session <= 2):
 			self.label.configure(text="Please click on start experiment to begin your %s task" % session[self.session])
 			self.time = 10
 			self.start_button.grid(row=1,column=1)
