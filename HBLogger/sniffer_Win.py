@@ -103,7 +103,7 @@ class SnifferThread(threading.Thread):
             procname = psutil.Process(ProcessID)
         except:
             return False
-        return procname.name() == "pythonw.exe"
+        return (procname.name() == "pythonw.exe" or procname.name() == "sublime_text.exe")
 
     # Handle the update of idle variable and run idle hook
     def HandleIdleEvent(self, event, mode):
@@ -114,7 +114,7 @@ class SnifferThread(threading.Thread):
             # For the keyboard idle time to be updated outside the IDE
             if (not self.CheckProcess(event)):
                 self.keyboard_last_idle_time = current_time
-                return "", "", False 
+                return "", "", False
 
             idle_time = current_time - self.keyboard_last_idle_time
             self.key_idle_hook(idle_time)

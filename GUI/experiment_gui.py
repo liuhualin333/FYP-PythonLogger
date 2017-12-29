@@ -18,17 +18,15 @@ class GUI:
 		default_font.configure(family="Times New Roman",size=15)
 		master.option_add("*Font", default_font)
 		# Set grid layout
-		master.grid_columnconfigure(0,weight=1)
-		master.grid_columnconfigure(2,weight=1)
-		master.grid_rowconfigure(0,weight=1)
-		master.grid_rowconfigure(1,weight=1)
-		master.grid_rowconfigure(2,weight=1)
+		self.toggleGridConfig("column",[0,1,2],[1,0,1])
+		self.toggleGridConfig("row",[0,1,2],[1,1,1])
 		# Set exit behaviour
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
 		self.sniffer = None # HBLogger wrapper instance
 		self.time = 10 # 30 minute timer
 		self.session = 0
+		self.session_text = ["first","second","third"]
 
 		self.label = Label(master,text="Please click on start experiment to begin your first task")
 		self.label.grid(row=0,column=1)
@@ -47,22 +45,16 @@ class GUI:
 
 		self.timer = Label(master,text="")
 
-		self.less_15_flag = False
+		self.less_15_flag = False # Flag indicating time less than 15 mins
 
 	def createScale(self):
-		frust_scale = Scale(self.master, label="Frustration", from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1)
-		calm_scale = Scale(self.master, label="Calm", from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1)
-		achiev_scale = Scale(self.master, label="Achievement", from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1)
-		bored_scale = Scale(self.master, label="Boredom", from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1)
-		anxious_scale = Scale(self.master, label="Anxious", from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1)
-		scales = [frust_scale,calm_scale,achiev_scale,bored_scale,anxious_scale]
+		labels = ["Frustration", "Calm", "Achievement", "Boredom", "Anxious"]
+		scales = []
+		for label in labels:
+			scales.append(Scale(self.master, label=label, from_=1, to=5, orient=HORIZONTAL, \
+			length=200, showvalue=0, tickinterval=1, resolution=1))
 		for scale in scales:
-			scale.set(3)
+			scale.set(1)
 		self.scales.append(scales)
 
 	def addScale(self):
@@ -117,9 +109,8 @@ class GUI:
 		self.time = 0
 
 	def resetWidgetForSurvey(self):
-		session = ["first", "second", "third"]
 		if (self.session < 2):
-			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % session[self.session])
+			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % self.session_text[self.session])
 		else:
 			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you finish experiment")
 		self.session += 1
@@ -132,7 +123,6 @@ class GUI:
 		for ele in self.scales:
 			for scale in ele:
 				labellist.append(scale.get())
-		print labellist
 		self.data_labels.append(labellist)
 		self.master.geometry("600x300")
 		for scale_label in self.scale_labels:
@@ -141,10 +131,9 @@ class GUI:
 		self.continue_button.grid_forget()
 		self.toggleGridConfig("column",[0,1,2],[1,0,1])
 		self.toggleGridConfig("row",[2,3,4,5],[1,0,0,0])
-		session = ["first", "second", "third"]
 		self.label.grid(row=0, column=1)
 		if (self.session <= 2):
-			self.label.configure(text="Please click on start experiment to begin your %s task" % session[self.session])
+			self.label.configure(text="Please click on start experiment to begin your %s task" % self.session_text[self.session])
 			self.time = 10
 			self.start_button.grid(row=1,column=1)
 		else:
@@ -152,8 +141,7 @@ class GUI:
 			self.quit_button.grid(row=1,column=1)
 
 	def configLabelText(self):
-		session = ["first", "second", "third"]
-		self.label.configure(text="Finish the %s task within time limit" % session[self.session])
+		self.label.configure(text="Finish the %s task within time limit" % self.session_text[self.session])
 
 	def closeHBLogger(self):
 		# Close the recording
@@ -161,6 +149,7 @@ class GUI:
 			Popen(["python", "./wrapper.py", "client"])
 			while (self.sniffer.poll() == None):
 				pass
+		self.sniffer == None
 
 	def update_clock(self):
 		importantfont=('Times New Roman',20,'bold')
@@ -190,9 +179,8 @@ class GUI:
 	def on_closing(self):
 		if (len(self.data_labels) == 3):
 			self.record_survey()
-		if (self.sniffer != None):
-			if (self.sniffer.poll() == None):
-				self.closeHBLogger()
+		if (self.sniffer != None and self.sniffer.poll() == None):
+			self.closeHBLogger()
 		root.destroy()
 
 	def add_suffix(self, path, fname, name, ext, extnum):
