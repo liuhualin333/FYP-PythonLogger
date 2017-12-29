@@ -14,9 +14,9 @@ class GUI:
 		master.geometry("600x300")
 
 		# Set default font
-		default_font = tkFont.nametofont("TkDefaultFont")
-		default_font.configure(family="Times New Roman",size=15)
-		master.option_add("*Font", default_font)
+		self.default_font = tkFont.nametofont("TkDefaultFont")
+		self.default_font.configure(family="Times New Roman",size=15)
+		master.option_add("*Font", self.default_font)
 		# Set grid layout
 		self.toggleGridConfig("column",[0,1,2],[1,0,1])
 		self.toggleGridConfig("row",[0,1,2],[1,1,1])
@@ -24,7 +24,7 @@ class GUI:
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
 		self.sniffer = None # HBLogger wrapper instance
-		self.time = 10 # 30 minute timer
+		self.time = 910 # 30 minute timer
 		self.session = 0
 		self.session_text = ["first","second","third"]
 
@@ -104,7 +104,7 @@ class GUI:
 	def fastforwardCallBack(self):
 		current_time = self.time
 		# If the time is less than 15 mins
-		if (current_time < 900):
+		if (current_time >= 900):
 			self.less_15_flag = True
 		self.time = 0
 
@@ -134,7 +134,8 @@ class GUI:
 		self.label.grid(row=0, column=1)
 		if (self.session <= 2):
 			self.label.configure(text="Please click on start experiment to begin your %s task" % self.session_text[self.session])
-			self.time = 10
+			self.time = 910
+			self.timer.config(fg="black",font=self.default_font)
 			self.start_button.grid(row=1,column=1)
 		else:
 			self.label.configure(text="Thank you for your participation. The experiment is over")
@@ -156,7 +157,7 @@ class GUI:
 		mins,secs = divmod(self.time,60) # (math.floor(a/b),a%b)
 		timeformat = '{:02d}:{:02d}'.format(mins,secs)
 		self.timer.configure(text="time remaining: %s" % timeformat)
-		if (0 <= self.time < 300):
+		if (0 <= self.time < 900):
 			if (self.time % 2 == 0):
 				self.timer.config(fg="red",font=importantfont)
 			else:
@@ -173,6 +174,10 @@ class GUI:
 			self.closeHBLogger()
 			self.resetWidgetForSurvey()
 		else:
+			if (self.time == 900):
+				self.master.lift()
+				self.master.attributes('-topmost',True)
+				self.master.attributes('-topmost',False)
 			self.time -= 1
 			self.master.after(1000, self.update_clock)
 
