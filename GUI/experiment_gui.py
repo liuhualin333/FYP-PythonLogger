@@ -5,6 +5,7 @@ from subprocess import *
 import time
 import signal
 import random
+import os
 
 class GUI:
 	def __init__ (self, master):
@@ -12,15 +13,17 @@ class GUI:
 		master.title("Experiment GUI")
 		master.geometry("600x300")
 
-		# Set Default Font
+		# Set default font
 		default_font = tkFont.nametofont("TkDefaultFont")
 		default_font.configure(family="Times New Roman",size=15)
 		master.option_add("*Font", default_font)
+		# Set grid layout
 		master.grid_columnconfigure(0,weight=1)
 		master.grid_columnconfigure(2,weight=1)
 		master.grid_rowconfigure(0,weight=1)
 		master.grid_rowconfigure(1,weight=1)
 		master.grid_rowconfigure(2,weight=1)
+		# Set exit behaviour
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
 		self.sniffer = None # HBLogger wrapper instance
@@ -38,13 +41,13 @@ class GUI:
 		self.fast_forward_button = Button(master, text="I have finished the task", command=self.fastforwardCallBack)
 
 		self.scales = [] # list used to store the scale objects
+		self.scale_labels = [Label(master,text=""), Label(master,text="")]
+
 		self.data_labels = [] # Variable used to store labels for data
 
 		self.timer = Label(master,text="")
 
 		self.less_15_flag = False
-
-		self.scale_labels = [Label(master,text=""), Label(master,text="")]
 
 	def createScale(self):
 		frust_scale = Scale(self.master, label="Frustration", from_=1, to=5, orient=HORIZONTAL, \
@@ -112,7 +115,6 @@ class GUI:
 		if (current_time < 900):
 			self.less_15_flag = True
 		self.time = 0
-
 
 	def resetWidgetForSurvey(self):
 		session = ["first", "second", "third"]
@@ -186,10 +188,35 @@ class GUI:
 			self.master.after(1000, self.update_clock)
 
 	def on_closing(self):
+		if (len(self.data_labels) == 3):
+			self.record_survey()
 		if (self.sniffer != None):
 			if (self.sniffer.poll() == None):
 				self.closeHBLogger()
-		root.destroy()	
+		root.destroy()
+
+	def add_suffix(self, path, fname, name, ext, extnum):
+		while os.path.isfile(os.path.join(path, fname)):
+			extnum += 1
+			fname = name+'_'+str(extnum)+'.'+ext
+		return fname
+
+	def record_survey(self):
+		# Create different data file for different sessions
+		fname = "label.txt"
+		name = "label"
+		ext = "txt"
+		extnum = 0;
+		path = os.path.expanduser("~/.HBLog")
+		try:
+		    os.makedirs(path)
+		except OSError:
+		    pass
+		fname = self.add_suffix(path,fname, name, ext, extnum)
+		label_file = open(os.path.join(path, fname), "w")
+		for labels in self.data_labels:
+			label_file.write(str(labels)+"\n")
+		label_file.close()
 
 def exit_signal_handler(signal,frame):
 	time.sleep(1)
@@ -200,4 +227,3 @@ signal.signal(signal.SIGINT, exit_signal_handler)
 root = Tk()
 gui = GUI(root)
 root.mainloop()
-
