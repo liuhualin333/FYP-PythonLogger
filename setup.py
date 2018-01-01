@@ -16,7 +16,7 @@ from setuptools import setup
 
 if platform.system() == "Windows":
     setup(name='HBLogger',
-          version='0.2',
+          version='0.3',
           description='A Python Logger used to record your keyboard and mouse behaviour',
           url='https://github.com/liuhualin333/HBLogger',
           author='Liu Hualin',
