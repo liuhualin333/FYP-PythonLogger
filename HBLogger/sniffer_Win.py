@@ -103,7 +103,7 @@ class SnifferThread(threading.Thread):
             procname = psutil.Process(ProcessID)
         except:
             return False
-        return (procname.name() == "pythonw.exe" or procname.name() == "sublime_text.exe" or procname.name() == "pycharm.exe")
+        return (procname.name() == "pythonw.exe" or procname.name() == "sublime_text.exe")
 
     # Handle the update of idle variable and run idle hook
     def HandleIdleEvent(self, event, mode):

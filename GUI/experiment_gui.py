@@ -6,6 +6,57 @@ import time
 import signal
 import random
 import os
+import cv2
+import multiprocessing
+
+event = multiprocessing.Event()
+p = None
+# File store location
+path = os.path.expanduser("~/.HBLog")
+def start_recording(e):
+	cap = cv2.VideoCapture(0)
+	fourcc = cv2.VideoWriter_fourcc(*'XVID')
+	videoname = get_filename('output','avi')
+	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc,  20.0, (640,480))
+
+	while(cap.isOpened()):
+		if e.is_set():
+			cap.release()
+			out.release()
+			cv2.destroyAllWindows()
+			e.clear()
+		ret, frame = cap.read()
+		if ret==True:
+			out.write(frame)
+		else:
+			break
+
+def start_recording_proc():
+	global p
+	p = multiprocessing.Process(target=start_recording, args=(event,))
+	p.start()
+
+# -------end video capture
+def stop_recording():
+	global event, p
+	event.set()
+	p.join()
+	# Reset
+	event = multiprocessing.Event()
+	p = None
+
+def get_filename(name,ext):
+	# Create different data file for different sessions
+	fname = name+"."+ext
+	extnum = 0;
+	try:
+	    os.makedirs(path)
+	except OSError:
+	    pass
+	while os.path.isfile(os.path.join(path, fname)):
+		extnum += 1
+		fname = name+'_'+str(extnum)+'.'+ext
+	return fname
 
 class GUI:
 	def __init__ (self, master):
@@ -26,8 +77,8 @@ class GUI:
 		self.path = os.path.expanduser("~/.HBLog")
 
 		self.sniffer = None # HBLogger wrapper instance
-		self.time = 10 # 30 minute timer
-		self.TIME_EXPERIMENT = 10
+		self.time = 1800 # 30 minute timer
+		self.TIME_EXPERIMENT = 1800
 		self.session = 0
 		self.session_text = ["first","second","third"]
 
@@ -49,6 +100,7 @@ class GUI:
 		self.timer = Label(master,text="")
 
 		self.less_15_flag = False # Flag indicating time less than 15 mins
+
 
 	def create_scale(self):
 		labels = ["Frustration", "Calm", "Achievement", "Boredom", "Anxious"]
@@ -85,10 +137,11 @@ class GUI:
 	def experiment_callback(self):
 		# run shell command as a new process
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
-		filename = self.get_filename("exp_q"+str(self.session+1), "py")
+		filename = get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
 		open(filename,"w").close()
-		self.file = Popen(["pycharm", filename])
+		self.file = Popen(["subl", "-n", filename])
+		start_recording_proc()
 		self.config_label_text()
 		self.start_button.grid_forget()
 		self.timer.grid(row=1,column=1)
@@ -116,6 +169,7 @@ class GUI:
 		self.time = 0
 
 	def reset_widget_for_survey(self):
+		stop_recording()
 		if (self.session < 2):
 			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % self.session_text[self.session])
 		else:
@@ -193,7 +247,7 @@ class GUI:
 
 	def on_closing(self):
 		if (len(self.data_labels) == 3):
-			fname = self.get_filename("label","txt")
+			fname = get_filename("label","txt")
 			label_file = open(os.path.join(self.path, fname), "w")
 			for labels in self.data_labels:
 				label_file.write(str(labels)+"\n")
@@ -202,24 +256,11 @@ class GUI:
 			self.close_hblogger()
 		root.destroy()
 
-	def get_filename(self,name,ext):
-		# Create different data file for different sessions
-		fname = name+"."+ext
-		extnum = 0;
-		try:
-		    os.makedirs(self.path)
-		except OSError:
-		    pass
-		while os.path.isfile(os.path.join(self.path, fname)):
-			extnum += 1
-			fname = name+'_'+str(extnum)+'.'+ext
-		return fname
-
 def exit_signal_handler(signal,frame):
 	pass
-		
-signal.signal(signal.SIGINT, exit_signal_handler)
 
-root = Tk()
-gui = GUI(root)
-root.mainloop()
+if __name__ == "__main__":		
+	signal.signal(signal.SIGINT, exit_signal_handler)
+	root = Tk()
+	gui = GUI(root)
+	root.mainloop()
