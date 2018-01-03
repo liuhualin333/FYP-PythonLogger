@@ -8,17 +8,42 @@ import random
 import os
 import cv2
 import multiprocessing
+from PIL import ImageGrab
+import numpy as np
 
 event = multiprocessing.Event()
+screen_event = multiprocessing.Event()
 p = None
+p_screen = None
 # File store location
 path = os.path.expanduser("~/.HBLog")
-def start_recording(e):
+
+def calculate_fps():
+	# Start default camera
+	video = cv2.VideoCapture(0);
+	# Number of frames to capture
+	num_frames = 120;
+	# Start time
+	start = time.time()
+	# Grab a few frames
+	for i in xrange(0, num_frames) :
+		ret, frame = video.read()
+	# End time
+	end = time.time()
+	# Time elapsed
+	seconds = end - start
+	# Calculate frames per second
+	fps  = num_frames / seconds;
+	# Release video
+	video.release()
+	return fps
+
+# For video recording
+def start_recording(e,fps):
 	cap = cv2.VideoCapture(0)
 	fourcc = cv2.VideoWriter_fourcc(*'XVID')
 	videoname = get_filename('output','avi')
-	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc,  20.0, (640,480))
-
+	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, fps, (640,480))
 	while(cap.isOpened()):
 		if e.is_set():
 			cap.release()
@@ -31,19 +56,40 @@ def start_recording(e):
 		else:
 			break
 
-def start_recording_proc():
-	global p
-	p = multiprocessing.Process(target=start_recording, args=(event,))
+def start_recording_screen(e,fps):
+	fourcc = cv2.VideoWriter_fourcc(*'XVID')
+	videoname = get_filename('output_screen','avi')
+	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, fps, (1366,768))
+	while (True):
+		if e.is_set():
+			out.release()
+			cv2.destroyAllWindows()
+			e.clear()
+			break
+		img = ImageGrab.grab(bbox=(0,0,1366,768))
+		img_np = np.array(img)
+		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
+		out.write(frame)
+
+def start_recording_proc(fps):
+	global p, p_screen
+	p = multiprocessing.Process(target=start_recording, args=(event,fps,))
+	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps,))
 	p.start()
+	p_screen.start()
 
 # -------end video capture
 def stop_recording():
-	global event, p
+	global event,screen_event, p, p_screen
 	event.set()
+	screen_event.set()
 	p.join()
+	p_screen.join()
 	# Reset
 	event = multiprocessing.Event()
+	screen_event = multiprocessing.Event()
 	p = None
+	p_screen = None
 
 def get_filename(name,ext):
 	# Create different data file for different sessions
@@ -75,6 +121,7 @@ class GUI:
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 		# File store location
 		self.path = os.path.expanduser("~/.HBLog")
+		self.fps = calculate_fps()
 
 		self.sniffer = None # HBLogger wrapper instance
 		self.time = 1800 # 30 minute timer
@@ -136,12 +183,12 @@ class GUI:
 
 	def experiment_callback(self):
 		# run shell command as a new process
+		start_recording_proc(self.fps)
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
 		filename = get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
 		open(filename,"w").close()
 		self.file = Popen(["subl", "-n", filename])
-		start_recording_proc()
 		self.config_label_text()
 		self.start_button.grid_forget()
 		self.timer.grid(row=1,column=1)
@@ -169,7 +216,6 @@ class GUI:
 		self.time = 0
 
 	def reset_widget_for_survey(self):
-		stop_recording()
 		if (self.session < 2):
 			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % self.session_text[self.session])
 		else:
@@ -231,6 +277,7 @@ class GUI:
 				self.timer.config(fg="black",font=importantfont)
 			# Jump to foreground
 			if (self.time == 0):
+				stop_recording()
 				self.label.configure(text="Storing dataset...")
 				self.jump_to_foreground()
 			self.time -= 1
