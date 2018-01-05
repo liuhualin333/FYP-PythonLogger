@@ -1,6 +1,5 @@
 from Tkinter import *
 import tkFont
-import tkMessageBox
 from subprocess import *
 import time
 import signal
@@ -8,13 +7,16 @@ import random
 import os
 import cv2
 import multiprocessing
-from PIL import ImageGrab
+from PIL import ImageGrab, Image, ImageTk
+import threading
 import numpy as np
+import math
 
 event = multiprocessing.Event()
 screen_event = multiprocessing.Event()
 p = None
 p_screen = None
+
 # File store location
 path = os.path.expanduser("~/.HBLog")
 
@@ -36,7 +38,18 @@ def calculate_fps():
 	fps  = num_frames / seconds;
 	# Release video
 	video.release()
-	return fps
+	num_screen_frames = 0
+	start = time.time()
+	while (True):
+		if num_screen_frames == 300:
+			break
+		img = ImageGrab.grab(bbox=(0,0,1366,768))
+		img_np = np.array(img)
+		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
+		num_screen_frames+=1
+	end = time.time()
+	fps_screen = num_screen_frames / (end - start)
+	return (fps,fps_screen)
 
 # For video recording
 def start_recording(e,fps):
@@ -71,12 +84,13 @@ def start_recording_screen(e,fps):
 		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
 		out.write(frame)
 
-def start_recording_proc(fps):
+def start_recording_proc(fps,fps_screen):
 	global p, p_screen
 	p = multiprocessing.Process(target=start_recording, args=(event,fps,))
-	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps,))
+	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps_screen,))
 	p.start()
 	p_screen.start()
+	time.sleep(2) # For camera to boot
 
 # -------end video capture
 def stop_recording():
@@ -104,6 +118,7 @@ def get_filename(name,ext):
 		fname = name+'_'+str(extnum)+'.'+ext
 	return fname
 
+
 class GUI:
 	def __init__ (self, master):
 		self.master = master
@@ -121,9 +136,10 @@ class GUI:
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 		# File store location
 		self.path = os.path.expanduser("~/.HBLog")
-		self.fps = calculate_fps()
+		self.fps,self.fps_screen = calculate_fps()
 
 		self.sniffer = None # HBLogger wrapper instance
+		self.video_survey = None
 		self.time = 1800 # 30 minute timer
 		self.TIME_EXPERIMENT = 1800
 		self.session = 0
@@ -134,38 +150,15 @@ class GUI:
 
 		self.start_button = Button(master, text="Start Experiment", command=self.experiment_callback)
 		self.start_button.grid(row=1,column=1)
-		self.continue_button = Button(master, text="Continue Experiment", command=self.reset_widget_for_experiment)
 		self.quit_button = Button(master, text="Quit Program", command=self.on_closing)
 		self.survey_button = Button(master, text="Begin Survey", command=self.survey_callback)
 		self.fast_forward_button = Button(master, text="I have finished the task", command=self.fast_forward_callback)
 
-		self.scales = [] # list used to store the scale objects
-		self.scale_labels = [Label(master,text=""), Label(master,text="")]
-
+		self.video_names = []
 		self.data_labels = [] # Variable used to store labels for data
-
+		self.threads = []
 		self.timer = Label(master,text="")
 
-		self.less_15_flag = False # Flag indicating time less than 15 mins
-
-
-	def create_scale(self):
-		labels = ["Frustration", "Calm", "Achievement", "Boredom", "Anxious"]
-		scales = []
-		for label in labels:
-			scales.append(Scale(self.master, label=label, from_=1, to=5, orient=HORIZONTAL, \
-			length=200, showvalue=0, tickinterval=1, resolution=1))
-		for scale in scales:
-			scale.set(1)
-		self.scales.append(scales)
-
-	def add_scale(self):
-		timescale=["first","last"]
-		for idx,ele in enumerate(self.scales):
-			self.scale_labels[idx].configure(text="How do you feel when programming in the %s 15 mins" % timescale[idx])
-			self.scale_labels[idx].grid(row=3*idx,column=1)
-			for index,scale in enumerate(ele):
-				scale.grid(row=3*idx+1+index/3,column=index%3)
 
 	def toggle_grid_config(self,mode,number,weight):
 		if (mode == "row"):
@@ -175,38 +168,29 @@ class GUI:
 			for idx,num in enumerate(number):
 				self.master.grid_columnconfigure(num,weight=weight[idx])
 
-	def remove_scale(self):
-		for ele in self.scales:
-			for scale in ele:
-				scale.grid_forget()
-		self.scales = []
-
 	def experiment_callback(self):
 		# run shell command as a new process
-		start_recording_proc(self.fps)
+		if (len(self.video_names) != 0):
+			self.video_names= []
+		self.video_names.append(os.path.join(self.path,get_filename('output_screen','avi')))
+		self.video_names.append(os.path.join(self.path,get_filename('output','avi')))
+		start_recording_proc(self.fps,self.fps_screen)
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
 		filename = get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
 		open(filename,"w").close()
 		self.file = Popen(["subl", "-n", filename])
-		self.config_label_text()
+		self.label.configure(text="Finish the %s task within time limit" % self.session_text[self.session])
 		self.start_button.grid_forget()
 		self.timer.grid(row=1,column=1)
 		self.fast_forward_button.grid(row=2,column=1)
 		self.update_clock()
 
 	def survey_callback(self):
-		self.master.geometry("900x600")
-		self.toggle_grid_config("column",[0,1,2],[0,0,0])
-		self.toggle_grid_config("row",[2,3,4,5],[1,1,1,1])
+		self.video_survey = Popen(["python", "./label_gui.py", self.video_names[1],self.video_names[0]])
 		self.label.grid_forget()
-		self.create_scale()
-		if (not self.less_15_flag):
-			self.create_scale()
-			self.less_15_flag = False
-		self.add_scale()
 		self.survey_button.grid_forget()
-		self.continue_button.grid(row=6,column=1)
+		self.reset_widget_for_experiment()
 
 	def fast_forward_callback(self):
 		current_time = self.time
@@ -217,25 +201,16 @@ class GUI:
 
 	def reset_widget_for_survey(self):
 		if (self.session < 2):
-			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you begin your %s task" % self.session_text[self.session])
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you begin your %s task\nEvery video clip is about 5 mins long" % self.session_text[self.session+1])
 		else:
-			self.label.configure(text="Dataset stored!\nPlease fill up survey form before you finish experiment")
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you finish experiment\nEvery video clip is about 5 mins long")
 		self.session += 1
 		self.timer.grid_forget()
 		self.fast_forward_button.grid_forget()
 		self.survey_button.grid(row=1,column=1)
 
 	def reset_widget_for_experiment(self):
-		labellist = []
-		for ele in self.scales:
-			for scale in ele:
-				labellist.append(scale.get())
-		self.data_labels.append(labellist)
 		self.master.geometry("600x300")
-		for scale_label in self.scale_labels:
-			scale_label.grid_forget()
-		self.remove_scale()
-		self.continue_button.grid_forget()
 		self.toggle_grid_config("column",[0,1,2],[1,0,1])
 		self.toggle_grid_config("row",[2,3,4,5],[1,0,0,0])
 		self.label.grid(row=0, column=1)
@@ -247,9 +222,6 @@ class GUI:
 		else:
 			self.label.configure(text="Thank you for your participation. The experiment is over")
 			self.quit_button.grid(row=1,column=1)
-
-	def config_label_text(self):
-		self.label.configure(text="Finish the %s task within time limit" % self.session_text[self.session])
 
 	def close_hblogger(self):
 		# Close the recording
@@ -263,7 +235,6 @@ class GUI:
 		self.master.lift()
 		self.master.attributes('-topmost',True)
 		self.master.attributes('-topmost',False)
-
 
 	def update_clock(self):
 		importantfont=('Times New Roman',20,'bold')
@@ -293,12 +264,6 @@ class GUI:
 			self.master.after(1000, self.update_clock)
 
 	def on_closing(self):
-		if (len(self.data_labels) == 3):
-			fname = get_filename("label","txt")
-			label_file = open(os.path.join(self.path, fname), "w")
-			for labels in self.data_labels:
-				label_file.write(str(labels)+"\n")
-			label_file.close()
 		if (self.sniffer != None and self.sniffer.poll() == None):
 			self.close_hblogger()
 		root.destroy()
