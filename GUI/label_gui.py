@@ -42,7 +42,6 @@ class Window(QtGui.QMainWindow):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
         self.setGeometry(20,20,1366-80,768-80)
-
         self.last_survey = False
         self.video_name = app.arguments()
 
@@ -138,24 +137,38 @@ class SurveyWidget(QtGui.QWidget):
     def __init__ (self,parent):
         super(SurveyWidget, self).__init__(parent)
         self.parent = parent
+        self.font = QtGui.QFont("Times",15)
+        self.warning_font = QtGui.QFont("Times", 15, QtGui.QFont.Bold)
+        self.palette = QtGui.QPalette()
+        self.palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.red)
         self.layout = QtGui.QGridLayout(self)
+
         self.info = QtGui.QLabel(self)
         self.info.setText("How do you feel when programming in the 5min period that we show you just now.")
+        self.info.setFont(self.font)
+
         self.warning = QtGui.QLabel(self)
-        self.layout.addWidget(self.info,1,1)
-        self.layout.addWidget(self.warning,2,1)
+        self.warning.setFont(self.warning_font)
+        self.warning.setPalette(self.palette)
+
+        self.layout.addWidget(self.info,1,1,1,3)
+        self.layout.addWidget(self.warning,2,1,1,3)
+        self.layout.setRowStretch(0,1)
         self.moods = QtGui.QButtonGroup(self)
         self.mood_buttons = []
         moods = ["Frustration", "Calm", "Achievement", "Boredom", "Anxious"]
         for idx,mood in enumerate(moods):
             mood_button = QtGui.QRadioButton(mood, self)
+            mood_button.setFont(self.font)
             self.mood_buttons.append(mood_button)
             self.moods.addButton(mood_button)
-            self.layout.addWidget(mood_button, idx+3, 1)
+            self.layout.addWidget(mood_button, (idx//3)+3, idx%3 + 1, 1,1)
         # control button
         self.button = QtGui.QPushButton('Continue', self)
         self.button.clicked.connect(self.handleButton)
-        self.layout.addWidget(self.button,8,1)
+        self.button.setFont(self.font)
+        self.layout.setRowStretch(5,1)
+        self.layout.addWidget(self.button,6,2,1,1)
 
     def handleButton(self):
         checked = False
@@ -179,14 +192,19 @@ class ExitWidget(QtGui.QWidget):
     def __init__ (self,parent):
         super(ExitWidget, self).__init__(parent)
         self.parent = parent
+        self.font = QtGui.QFont("Times",15)
         self.layout = QtGui.QGridLayout(self)
         self.info = QtGui.QLabel(self)
-        self.info.setText("Thank you for your patience. You may now exit program")
-        self.layout.addWidget(self.info,1,1)
+        self.info.setText("Thank you for your patience. You may now exit program.")
+        self.info.setFont(self.font)
+        self.layout.addWidget(self.info,0,2,1,1)
+        self.layout.setColumnStretch(1,1)
+        self.layout.setColumnStretch(3,1)
         # control button
         self.button = QtGui.QPushButton('Exit Program', self)
         self.button.clicked.connect(self.handleButton)
-        self.layout.addWidget(self.button,2,1)
+        self.button.setFont(self.font)
+        self.layout.addWidget(self.button,1,2,1,1)
 
     def handleButton(self):
         self.info.setText("Storing data, please wait...")
