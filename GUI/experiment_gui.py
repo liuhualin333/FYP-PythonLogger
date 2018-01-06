@@ -3,14 +3,13 @@ import tkFont
 from subprocess import *
 import time
 import signal
-import random
 import os
 import cv2
 import multiprocessing
 from PIL import ImageGrab, Image, ImageTk
-import threading
 import numpy as np
 import math
+from mss import mss
 
 event = multiprocessing.Event()
 screen_event = multiprocessing.Event()
@@ -20,43 +19,40 @@ p_screen = None
 # File store location
 path = os.path.expanduser("~/.HBLog")
 
-def calculate_fps():
-	# Start default camera
-	video = cv2.VideoCapture(0);
-	# Number of frames to capture
-	num_frames = 120;
-	# Start time
-	start = time.time()
-	# Grab a few frames
-	for i in xrange(0, num_frames) :
-		ret, frame = video.read()
-	# End time
-	end = time.time()
-	# Time elapsed
-	seconds = end - start
-	# Calculate frames per second
-	fps  = num_frames / seconds;
-	# Release video
-	video.release()
-	num_screen_frames = 0
-	start = time.time()
-	while (True):
-		if num_screen_frames == 300:
-			break
-		img = ImageGrab.grab(bbox=(0,0,1366,768))
+def get_screen_fps():
+	print("Calculating fps...")
+	fourcc = cv2.VideoWriter_fourcc(*'XVID')
+	videoname = get_filename('test','avi')
+	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, 20, (1366,768))
+	sct = mss()
+	monitor = sct.monitors[1]
+	# Capture a bbox using percent values
+	bbox = (0, 0, monitor['width'], monitor['height'])
+	mon = {'top': 0, 'left': 0, 'width': 1366, 'height': 768}
+	fps = 0
+
+	last_time = time.time()
+	while(time.time()-last_time < 1):
+		if event.is_set():
+			pass
+		img_mss = sct.grab(mon)
+		img = Image.frombytes('RGB', img_mss.size, img_mss.rgb)
 		img_np = np.array(img)
 		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-		num_screen_frames+=1
-	end = time.time()
-	fps_screen = num_screen_frames / (end - start)
-	return (fps,fps_screen)
+		out.write(frame)
+		fps+=1
+	out.release()
+	os.remove(os.path.join(os.path.expanduser("~/.HBLog"),videoname))
+	print("fps: %d" % fps)
+	return fps
 
 # For video recording
-def start_recording(e,fps):
+def start_recording(e):
 	cap = cv2.VideoCapture(0)
+	cap.set(cv2.CAP_PROP_FPS,14)
 	fourcc = cv2.VideoWriter_fourcc(*'XVID')
 	videoname = get_filename('output','avi')
-	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, fps, (640,480))
+	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, 14, (640,480))
 	while(cap.isOpened()):
 		if e.is_set():
 			cap.release()
@@ -73,24 +69,30 @@ def start_recording_screen(e,fps):
 	fourcc = cv2.VideoWriter_fourcc(*'XVID')
 	videoname = get_filename('output_screen','avi')
 	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, fps, (1366,768))
+	sct = mss()
+	monitor = sct.monitors[1]
+	# Capture a bbox using percent values
+	bbox = (0, 0, monitor['width'], monitor['height'])
+	mon = {'top': 0, 'left': 0, 'width': 1366, 'height': 768}
 	while (True):
 		if e.is_set():
 			out.release()
 			cv2.destroyAllWindows()
 			e.clear()
 			break
-		img = ImageGrab.grab(bbox=(0,0,1366,768))
+		img_mss = sct.grab(mon)
+		img = Image.frombytes('RGB', img_mss.size, img_mss.rgb)
 		img_np = np.array(img)
 		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
 		out.write(frame)
+		cv2.waitKey(1000/fps)
 
-def start_recording_proc(fps,fps_screen):
+def start_recording_proc(fps):
 	global p, p_screen
-	p = multiprocessing.Process(target=start_recording, args=(event,fps,))
-	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps_screen,))
+	p = multiprocessing.Process(target=start_recording, args=(event,))
+	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps,))
 	p.start()
 	p_screen.start()
-	time.sleep(2) # For camera to boot
 
 # -------end video capture
 def stop_recording():
@@ -136,7 +138,6 @@ class GUI:
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 		# File store location
 		self.path = os.path.expanduser("~/.HBLog")
-		self.fps,self.fps_screen = calculate_fps()
 
 		self.sniffer = None # HBLogger wrapper instance
 		self.video_survey = None
@@ -144,6 +145,7 @@ class GUI:
 		self.TIME_EXPERIMENT = 1800
 		self.session = 0
 		self.session_text = ["first","second","third"]
+		self.fps = get_screen_fps()
 
 		self.label = Label(master,text="Please click on start experiment to begin your first task")
 		self.label.grid(row=0,column=1)
@@ -156,7 +158,6 @@ class GUI:
 
 		self.video_names = []
 		self.data_labels = [] # Variable used to store labels for data
-		self.threads = []
 		self.timer = Label(master,text="")
 
 
@@ -174,7 +175,6 @@ class GUI:
 			self.video_names= []
 		self.video_names.append(os.path.join(self.path,get_filename('output_screen','avi')))
 		self.video_names.append(os.path.join(self.path,get_filename('output','avi')))
-		start_recording_proc(self.fps,self.fps_screen)
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
 		filename = get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
@@ -184,6 +184,7 @@ class GUI:
 		self.start_button.grid_forget()
 		self.timer.grid(row=1,column=1)
 		self.fast_forward_button.grid(row=2,column=1)
+		start_recording_proc(self.fps)
 		self.update_clock()
 
 	def survey_callback(self):
