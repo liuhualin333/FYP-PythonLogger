@@ -69,8 +69,7 @@ class Window(QtGui.QMainWindow):
         mins,secs = divmod(int(lapse),60) # (math.floor(a/b),a%b)
         timeformat = '%d:%d'%(mins,secs)
         # stop when 5 mins is reached
-        if (int(lapse) % 300 == 0 and int(lapse) >= 300):
-            self.time += 5
+        if (int(lapse) % 120 == 0 and int(lapse) >= 120):
             self.switchToSurveyPage()
 
     def startTimer(self):
@@ -84,6 +83,7 @@ class Window(QtGui.QMainWindow):
         self.VideoWidget.media.pause()
         self.VideoWidget.screen.pause()
         self.central_widget.setCurrentWidget(self.SurveyWidget)
+        self.time += 5
 
     def switchToVideoPage(self):
         if (self.last_survey):
@@ -144,7 +144,7 @@ class SurveyWidget(QtGui.QWidget):
         self.layout = QtGui.QGridLayout(self)
 
         self.info = QtGui.QLabel(self)
-        self.info.setText("How do you feel when programming in the 5min period that we show you just now.")
+        self.info.setText("How do you feel when programming in the 2min period that we show you just now.")
         self.info.setFont(self.font)
 
         self.warning = QtGui.QLabel(self)
@@ -156,7 +156,7 @@ class SurveyWidget(QtGui.QWidget):
         self.layout.setRowStretch(0,1)
         self.moods = QtGui.QButtonGroup(self)
         self.mood_buttons = []
-        moods = ["Frustration", "Calm", "Achievement", "Boredom", "Anxious"]
+        moods = ["Frustration", "Calm", "Boredom", "Confusion"]
         for idx,mood in enumerate(moods):
             mood_button = QtGui.QRadioButton(mood, self)
             mood_button.setFont(self.font)
@@ -177,7 +177,7 @@ class SurveyWidget(QtGui.QWidget):
             if (mood_button.isChecked()):
                 checked = True
                 checked_value = mood_button.text()
-                self.parent.data_labels.append([checked_value, self.parent.time])
+                self.parent.data_labels.append([checked_value, str(self.parent.time- 5) + "-" + str(self.parent.time)])
                 self.moods.setExclusive(False)
                 mood_button.setChecked(False)
                 self.moods.setExclusive(True)

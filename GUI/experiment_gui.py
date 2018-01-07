@@ -4,122 +4,7 @@ from subprocess import *
 import time
 import signal
 import os
-import cv2
-import multiprocessing
-from PIL import ImageGrab, Image, ImageTk
-import numpy as np
 import math
-from mss import mss
-
-event = multiprocessing.Event()
-screen_event = multiprocessing.Event()
-p = None
-p_screen = None
-
-# File store location
-path = os.path.expanduser("~/.HBLog")
-
-def get_screen_fps():
-	print("Calculating fps...")
-	fourcc = cv2.VideoWriter_fourcc(*'XVID')
-	videoname = get_filename('test','avi')
-	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, 20, (1366,768))
-	sct = mss()
-	monitor = sct.monitors[1]
-	# Capture a bbox using percent values
-	bbox = (0, 0, monitor['width'], monitor['height'])
-	mon = {'top': 0, 'left': 0, 'width': 1366, 'height': 768}
-	fps = 0
-
-	last_time = time.time()
-	while(time.time()-last_time < 1):
-		if event.is_set():
-			pass
-		img_mss = sct.grab(mon)
-		img = Image.frombytes('RGB', img_mss.size, img_mss.rgb)
-		img_np = np.array(img)
-		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-		out.write(frame)
-		fps+=1
-	out.release()
-	os.remove(os.path.join(os.path.expanduser("~/.HBLog"),videoname))
-	print("fps: %d" % fps)
-	return fps
-
-# For video recording
-def start_recording(e):
-	cap = cv2.VideoCapture(0)
-	cap.set(cv2.CAP_PROP_FPS,14)
-	fourcc = cv2.VideoWriter_fourcc(*'XVID')
-	videoname = get_filename('output','avi')
-	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, 14, (640,480))
-	while(cap.isOpened()):
-		if e.is_set():
-			cap.release()
-			out.release()
-			cv2.destroyAllWindows()
-			e.clear()
-		ret, frame = cap.read()
-		if ret==True:
-			out.write(frame)
-		else:
-			break
-
-def start_recording_screen(e,fps):
-	fourcc = cv2.VideoWriter_fourcc(*'XVID')
-	videoname = get_filename('output_screen','avi')
-	out = cv2.VideoWriter(os.path.join(os.path.expanduser("~/.HBLog"),videoname),fourcc, fps, (1366,768))
-	sct = mss()
-	monitor = sct.monitors[1]
-	# Capture a bbox using percent values
-	bbox = (0, 0, monitor['width'], monitor['height'])
-	mon = {'top': 0, 'left': 0, 'width': 1366, 'height': 768}
-	while (True):
-		if e.is_set():
-			out.release()
-			cv2.destroyAllWindows()
-			e.clear()
-			break
-		img_mss = sct.grab(mon)
-		img = Image.frombytes('RGB', img_mss.size, img_mss.rgb)
-		img_np = np.array(img)
-		frame = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-		out.write(frame)
-		cv2.waitKey(1000/fps)
-
-def start_recording_proc(fps):
-	global p, p_screen
-	p = multiprocessing.Process(target=start_recording, args=(event,))
-	p_screen = multiprocessing.Process(target=start_recording_screen, args=(screen_event,fps,))
-	p.start()
-	p_screen.start()
-
-# -------end video capture
-def stop_recording():
-	global event,screen_event, p, p_screen
-	event.set()
-	screen_event.set()
-	p.join()
-	p_screen.join()
-	# Reset
-	event = multiprocessing.Event()
-	screen_event = multiprocessing.Event()
-	p = None
-	p_screen = None
-
-def get_filename(name,ext):
-	# Create different data file for different sessions
-	fname = name+"."+ext
-	extnum = 0;
-	try:
-	    os.makedirs(path)
-	except OSError:
-	    pass
-	while os.path.isfile(os.path.join(path, fname)):
-		extnum += 1
-		fname = name+'_'+str(extnum)+'.'+ext
-	return fname
-
 
 class GUI:
 	def __init__ (self, master):
@@ -137,7 +22,7 @@ class GUI:
 		# Set exit behaviour
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 		# File store location
-		self.path = os.path.expanduser("~/.HBLog")
+		self.path = os.path.expanduser("~\\.HBLog")
 
 		self.sniffer = None # HBLogger wrapper instance
 		self.video_survey = None
@@ -145,7 +30,6 @@ class GUI:
 		self.TIME_EXPERIMENT = 1800
 		self.session = 0
 		self.session_text = ["first","second","third"]
-		self.fps = get_screen_fps()
 
 		self.label = Label(master,text="Please click on start experiment to begin your first task")
 		self.label.grid(row=0,column=1)
@@ -173,10 +57,10 @@ class GUI:
 		# run shell command as a new process
 		if (len(self.video_names) != 0):
 			self.video_names= []
-		self.video_names.append(os.path.join(self.path,get_filename('output_screen','avi')))
-		self.video_names.append(os.path.join(self.path,get_filename('output','avi')))
+		self.video_names.append(os.path.join(self.path,self.get_filename('output_screen','avi')))
+		self.video_names.append(os.path.join(self.path,self.get_filename('output','avi')))
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
-		filename = get_filename("exp_q"+str(self.session+1), "py")
+		filename = self.get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
 		open(filename,"w").close()
 		self.file = Popen(["subl", "-n", filename])
@@ -184,7 +68,7 @@ class GUI:
 		self.start_button.grid_forget()
 		self.timer.grid(row=1,column=1)
 		self.fast_forward_button.grid(row=2,column=1)
-		start_recording_proc(self.fps)
+		self.start_recording_proc()
 		self.update_clock()
 
 	def survey_callback(self):
@@ -249,7 +133,7 @@ class GUI:
 				self.timer.config(fg="black",font=importantfont)
 			# Jump to foreground
 			if (self.time == 0):
-				stop_recording()
+				self.stop_recording()
 				self.label.configure(text="Storing dataset...")
 				self.jump_to_foreground()
 			self.time -= 1
@@ -267,7 +151,29 @@ class GUI:
 	def on_closing(self):
 		if (self.sniffer != None and self.sniffer.poll() == None):
 			self.close_hblogger()
+		self.stop_recording()
 		root.destroy()
+
+	def start_recording_proc(self):
+		Popen(["python", "./wrapper.py", "record_vid", self.video_names[1]])
+		Popen(["python", "./wrapper.py", "record_screen", self.video_names[0]])
+
+	# -------end video capture
+	def stop_recording(self):
+		Popen(["python", "./wrapper.py", "stop_recording"])
+
+	def get_filename(self,name,ext):
+		# Create different data file for different sessions
+		fname = name+"."+ext
+		extnum = 0;
+		try:
+		    os.makedirs(self.path)
+		except OSError:
+		    pass
+		while os.path.isfile(os.path.join(self.path, fname)):
+			extnum += 1
+			fname = name+'_'+str(extnum)+'.'+ext
+		return fname
 
 def exit_signal_handler(signal,frame):
 	pass
