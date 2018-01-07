@@ -25,6 +25,8 @@ class GUI:
 		self.path = os.path.expanduser("~\\.HBLog")
 
 		self.sniffer = None # HBLogger wrapper instance
+		self.video_proc = None
+		self.screen_proc = None
 		self.video_survey = None
 		self.time = 1800 # 30 minute timer
 		self.TIME_EXPERIMENT = 1800
@@ -34,11 +36,14 @@ class GUI:
 		self.label = Label(master,text="Please click on start experiment to begin your first task")
 		self.label.grid(row=0,column=1)
 
+		self.start_time = 0 # Experiment start time
 		self.start_button = Button(master, text="Start Experiment", command=self.experiment_callback)
 		self.start_button.grid(row=1,column=1)
 		self.quit_button = Button(master, text="Quit Program", command=self.on_closing)
 		self.survey_button = Button(master, text="Begin Survey", command=self.survey_callback)
 		self.fast_forward_button = Button(master, text="I have finished the task", command=self.fast_forward_callback)
+
+		self.recording = False
 
 		self.video_names = []
 		self.data_labels = [] # Variable used to store labels for data
@@ -69,6 +74,7 @@ class GUI:
 		self.timer.grid(row=1,column=1)
 		self.fast_forward_button.grid(row=2,column=1)
 		self.start_recording_proc()
+		self.start_time = time.time()
 		self.update_clock()
 
 	def survey_callback(self):
@@ -86,9 +92,9 @@ class GUI:
 
 	def reset_widget_for_survey(self):
 		if (self.session < 2):
-			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you begin your %s task\nEvery video clip is about 5 mins long" % self.session_text[self.session+1])
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you begin your %s task\nEvery video clip is about 2 mins long" % self.session_text[self.session+1])
 		else:
-			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you finish experiment\nEvery video clip is about 5 mins long")
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you finish experiment\nEvery video clip is about 2 mins long")
 		self.session += 1
 		self.timer.grid_forget()
 		self.fast_forward_button.grid_forget()
@@ -108,8 +114,8 @@ class GUI:
 			self.label.configure(text="Thank you for your participation. The experiment is over")
 			self.quit_button.grid(row=1,column=1)
 
-	def close_hblogger(self):
-		# Close the recording
+	def stop_sniffing(self):
+		# Close the recording and sniffing
 		if (self.sniffer != None):
 			Popen(["python", "./wrapper.py", "client"])
 			while (self.sniffer.poll() == None):
@@ -126,41 +132,45 @@ class GUI:
 		mins,secs = divmod(self.time,60) # (math.floor(a/b),a%b)
 		timeformat = '{:02d}:{:02d}'.format(mins,secs)
 		self.timer.configure(text="time remaining: %s" % timeformat)
-		if (0 <= self.time < 900):
-			if (self.time % 2 == 0):
-				self.timer.config(fg="red",font=importantfont)
-			else:
-				self.timer.config(fg="black",font=importantfont)
-			# Jump to foreground
-			if (self.time == 0):
-				self.stop_recording()
-				self.label.configure(text="Storing dataset...")
-				self.jump_to_foreground()
-			self.time -= 1
-			self.master.after(1000, self.update_clock)
-		elif (self.time < 0):
-			self.close_hblogger()
-			self.reset_widget_for_survey()
-		else:
+		if (self.time >= 900):
 			# Remind them 15 mins remaining
 			if (self.time == 900):
 				self.jump_to_foreground()
 			self.time -= 1
-			self.master.after(1000, self.update_clock)
+			# Dynamiclly adjust timer, reduce delay
+			if (time.time() - self.start_time - (1800 - self.time - 1) > 0.25):
+				self.master.after(750, self.update_clock)
+			else:
+				self.master.after(1000, self.update_clock)
+		else:
+			if (0 <= self.time < 900):
+				if (self.time % 2 == 0):
+					self.timer.config(fg="red",font=importantfont)
+				else:
+					self.timer.config(fg="black",font=importantfont)
+				# Jump to foreground
+				if (self.time == 0):
+					self.start_time = 0
+					self.stop_sniffing()
+					self.label.configure(text="Storing dataset...")
+					self.jump_to_foreground()
+				self.time -= 1
+				if (time.time() - self.start_time - (1800 - self.time - 1) > 0.25):
+					self.master.after(750, self.update_clock)
+				else:
+					self.master.after(1000, self.update_clock)
+			elif (self.time < 0):
+				self.reset_widget_for_survey()
 
 	def on_closing(self):
 		if (self.sniffer != None and self.sniffer.poll() == None):
-			self.close_hblogger()
-		self.stop_recording()
+			self.stop_sniffing()
 		root.destroy()
 
 	def start_recording_proc(self):
-		Popen(["python", "./wrapper.py", "record_vid", self.video_names[1]])
-		Popen(["python", "./wrapper.py", "record_screen", self.video_names[0]])
-
-	# -------end video capture
-	def stop_recording(self):
-		Popen(["python", "./wrapper.py", "stop_recording"])
+		self.video_proc = Popen(["python", "./wrapper.py", "record_vid", self.video_names[1]])
+		self.screen_proc = Popen(["python", "./wrapper.py", "record_screen", self.video_names[0]])
+		self.recording = True
 
 	def get_filename(self,name,ext):
 		# Create different data file for different sessions
