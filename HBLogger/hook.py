@@ -4,6 +4,7 @@ import sqlalchemy
 import models
 import os.path
 from models import Click, Keys, Move, Idle
+import pdb
 
 # Create different data file for different sessions
 fname = "log.db"
@@ -84,7 +85,7 @@ def translate_combo_state(combo_state):
 		finalstring += "Win+"
 	return finalstring
 
-def got_mouse_click(category, x, y):
+def got_mouse_click(category, x, y, timestamp):
 	if category == 1:
 		print "mouse left down (%d, %d)" % (x, y)
 		button = "left"
@@ -103,16 +104,14 @@ def got_mouse_click(category, x, y):
 	elif category == 6:
 		print "mouse drag event captured"
 		button = "drag"
-	click_list.append([button,x,y,time.time()])
-	#store_click(button, x, y)
+	click_list.append([button,x,y,timestamp])
 
 def got_mouse_move(length, start_time, end_time):
 	duration = end_time - start_time
 	print "Length: %d, Duration: %fs" % (length, duration)
-	move_list.append([duration,length,time.time()])
-	#store_move((end_time - start_time), len(mouse_path))
+	move_list.append([duration,length,start_time])
 
-def got_key(key, pressing, combo_state, transit):
+def got_key(key, pressing, combo_state, transit, timestamp):
 	modifiers = []
 	keyname = key[0]
 	if (combo_state != "0000"):
@@ -162,28 +161,24 @@ def got_key(key, pressing, combo_state, transit):
 					finalstring += string
 	if not pressing:
 		print finalstring
-		key_list.append([finalstring, False, time.time()])
-		#store_key(finalstring, key[1], False)
+		key_list.append([finalstring, False, timestamp])
 	# Key holding
 	else:
 		holdtime = time.time() - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
-		key_list.append([finalstring, True, time.time(), holdtime])
-		#store_key(finalstring, key[1], True, holdtime)
+		key_list.append([finalstring, True, timestamp, holdtime])
 
-def got_key_idle(idle_time):
+def got_key_idle(idle_time, timestamp):
 	if idle_time > const.IDLE_THRESHOLD:
 		# Let's not record implicit idleness
 		print "Keyboard idle for %fs" % (idle_time)
-		idle_list.append([idle_time,"keyboard",time.time()])
-		#store_idle(idle_time, "keyboard")
+		idle_list.append([idle_time,"keyboard",timestamp])
 
-def got_mouse_idle(idle_time):
+def got_mouse_idle(idle_time, timestamp):
 	if idle_time > const.IDLE_THRESHOLD:
 		# Let's not record implicit idleness
 		print "Mouse idle for %fs" % (idle_time)
-		idle_list.append([idle_time,"mouse",time.time()])
-		#store_idle(idle_time, "mouse")
+		idle_list.append([idle_time,"mouse",timestamp])
 
 # Write stored data to SQL and close the program
 def write_data():
@@ -217,7 +212,6 @@ def write_data():
 			store_click(click[0], click[1], click[2], click[3])
 	for move in move_list:
 		store_move(move[0], move[1], move[2])
-	last_key = None
 	for idx,key in enumerate(key_list):
 		# Eliminate first special key record leading the combo
 		if (idx < len(key_list) - 1 and is_special_key(key_list[idx][0])):
@@ -225,13 +219,12 @@ def write_data():
 			if (len(combo_list) > 1 and key_list[idx][0] in key_list[idx+1][0]):
 				continue
 		# Eliminate two key record leading the hold event
-		if ((idx < len(key_list) - 2 and key_list[idx][0] == key_list[idx+2][0] and key_list[idx+2][2])) or ((idx < len(key_list) - 1 and key_list[idx][0] == key_list[idx+1][0] and key_list[idx+1][2])):
+		if ((idx < len(key_list) - 2 and key_list[idx][0] == key_list[idx+2][0] and key_list[idx+2][1])) or ((idx < len(key_list) - 1 and key_list[idx][0] == key_list[idx+1][0] and key_list[idx+1][1])):
 			continue
 		if (len(key) < 4):
 			store_key(key[0], key[1], key[2])
 		else:
 			store_key(key[0], key[1], key[2], key[3])
-		last_key = key
 	for idle in idle_list:
 		store_idle(idle[0], idle[1], idle[2])
 	print("Dataset recorded")

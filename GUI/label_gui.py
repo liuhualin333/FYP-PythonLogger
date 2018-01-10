@@ -68,8 +68,8 @@ class Window(QtGui.QMainWindow):
         lapse = self.VideoWidget.media.currentTime()/1000.0
         mins,secs = divmod(int(lapse),60) # (math.floor(a/b),a%b)
         timeformat = '%d:%d'%(mins,secs)
-        # stop when 5 mins is reached
-        if (int(lapse) % 120 == 0 and int(lapse) >= 120):
+        # stop when 1 min is reached
+        if (int(lapse) % 60 == 0 and int(lapse) >= 60):
             self.switchToSurveyPage()
 
     def startTimer(self):
@@ -83,7 +83,7 @@ class Window(QtGui.QMainWindow):
         self.VideoWidget.media.pause()
         self.VideoWidget.screen.pause()
         self.central_widget.setCurrentWidget(self.SurveyWidget)
-        self.time += 5
+        self.time += 1
 
     def switchToVideoPage(self):
         if (self.last_survey):
@@ -144,7 +144,7 @@ class SurveyWidget(QtGui.QWidget):
         self.layout = QtGui.QGridLayout(self)
 
         self.info = QtGui.QLabel(self)
-        self.info.setText("How do you feel when programming in the 2min period that we show you just now.")
+        self.info.setText("How do you feel when programming in the 1min period that we show you just now.")
         self.info.setFont(self.font)
 
         self.warning = QtGui.QLabel(self)
@@ -156,19 +156,23 @@ class SurveyWidget(QtGui.QWidget):
         self.layout.setRowStretch(0,1)
         self.moods = QtGui.QButtonGroup(self)
         self.mood_buttons = []
-        moods = ["Frustration", "Calm", "Boredom", "Confusion"]
+        moods = ["Frustration: I can't solve it...",\
+                 "Confusion: What is this? What should I do? Why is it not working?",\
+                 "Boredom: This question is not interesting.",\
+                 "Neutral: I feel neither good nor bad.",\
+                 "Engagement: I know how to do it. I've got an idea!"]
         for idx,mood in enumerate(moods):
             mood_button = QtGui.QRadioButton(mood, self)
             mood_button.setFont(self.font)
             self.mood_buttons.append(mood_button)
             self.moods.addButton(mood_button)
-            self.layout.addWidget(mood_button, (idx//3)+3, idx%3 + 1, 1,1)
+            self.layout.addWidget(mood_button, idx+3, 1, 1,3)
         # control button
         self.button = QtGui.QPushButton('Continue', self)
         self.button.clicked.connect(self.handleButton)
         self.button.setFont(self.font)
-        self.layout.setRowStretch(5,1)
-        self.layout.addWidget(self.button,6,2,1,1)
+        self.layout.setRowStretch(8,1)
+        self.layout.addWidget(self.button,9,2,1,1)
 
     def handleButton(self):
         checked = False
@@ -176,8 +180,8 @@ class SurveyWidget(QtGui.QWidget):
         for mood_button in self.mood_buttons:
             if (mood_button.isChecked()):
                 checked = True
-                checked_value = mood_button.text()
-                self.parent.data_labels.append([checked_value, str(self.parent.time- 5) + "-" + str(self.parent.time)])
+                checked_value = mood_button.text().split(":")[0]
+                self.parent.data_labels.append([checked_value, str(self.parent.time- 1) + "~" + str(self.parent.time)])
                 self.moods.setExclusive(False)
                 mood_button.setChecked(False)
                 self.moods.setExclusive(True)

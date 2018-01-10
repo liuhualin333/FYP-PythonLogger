@@ -92,9 +92,9 @@ class GUI:
 
 	def reset_widget_for_survey(self):
 		if (self.session < 2):
-			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you begin your %s task\nEvery video clip is about 2 mins long" % self.session_text[self.session+1])
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you begin your %s task\nEvery video clip is about 1 min long" % self.session_text[self.session+1])
 		else:
-			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you finish experiment\nEvery video clip is about 2 mins long")
+			self.label.configure(text="Dataset stored!\nPlease watch the video and fill up survey form\n before you finish experiment\nEvery video clip is about 1 min long")
 		self.session += 1
 		self.timer.grid_forget()
 		self.fast_forward_button.grid_forget()

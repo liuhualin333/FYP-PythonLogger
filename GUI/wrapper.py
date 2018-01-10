@@ -47,9 +47,7 @@ def main(mode):
 		 "-b:v", "4M", "-preset:v", "ultrafast", sys.argv[2]])
 	elif (mode == "record_screen"):
 		print("Screen Recording")
-		subprocess.Popen(["ffmpeg", "-v", "0", "-f", "dshow", "-i", "video=screen-capture-recorder",\
-		"-preset:v", "ultrafast", sys.argv[2]])
-
+		subprocess.Popen(["ffmpeg", "-v", "0", "-f", "dshow", "-i", "video=screen-capture-recorder", sys.argv[2]])
 
 if __name__ == "__main__":
 	mode_string = sys.argv[1]
