@@ -67,7 +67,7 @@ class Move(SpookMixin, Base):
 
 
 	def __repr__(self):
-		return "<Move for %fs and %d distance>" % (self.time, self.nrmoves)
+		return "<Move for %fs and %d distance>" % (self.time, self.length)
 
 class Keys(SpookMixin, Base):
 	text = Column(String(32), nullable=False)
