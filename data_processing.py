@@ -51,17 +51,18 @@ def initialize_log(filename):
 def get_start_time(ops_list):
 	return ops_list[0][1]
 
-def write_data(file, feature_arr):
+def write_data(file, feature_arr, labelfile):
 	for idx,item in enumerate(feature_arr):
 		feature_arr[idx] = str(item)
-	file.write(",".join(feature_arr)+"\n")
+	file.write(",".join(feature_arr)+","+labelfile.readline().split(",")[0]+"\n")
 
-def main(filename):
+def main(filename, labelfile):
 	ops_list, fname, session = initialize_log(filename)
 	start_time = get_start_time(ops_list)
 	print("Start Time: %f" % start_time)
 
 	keys_num = 0
+	hold_keys = 0
 	backspace_typed = 0
 	backspace_held = 0
 	space_typed = 0
@@ -82,16 +83,18 @@ def main(filename):
 	current_timespot = start_time
 
 	file = open(os.path.join(path, fname.split(".")[0]+"_processed.csv"), 'w')
+	label = open(os.path.join(path, labelfile), 'r')
 
 	for activity in ops_list:
 		if (activity[1] - current_timespot > 60):
 			# TODO: Write data
-			feature_arr = [current_minute, keys_num, backspace_typed, backspace_held, space_typed, space_held, copy_typed, undo_typed, combo_typed,\
+			feature_arr = [current_minute, keys_num, hold_keys, backspace_typed, backspace_held, space_typed, space_held, copy_typed, undo_typed, combo_typed,\
 			mouse_moved_num, mouse_left_click, mouse_right_click, mouse_wheel_action, keyboard_idle_times_less_60, mouse_idle_times_less_60,\
 			keyboard_idle_times_more_60, mouse_idle_times_more_60]
-			write_data(file,feature_arr)
+			write_data(file,feature_arr,label)
 
 			keys_num = 0
+			hold_keys = 0
 			backspace_typed = 0
 			backspace_held = 0
 			space_typed = 0
@@ -153,4 +156,4 @@ def main(filename):
 	fname = get_filename("log", "db")
 	os.remove(os.path.join(path,fname))
 if __name__ == "__main__":
-	main(sys.argv[1])
+	main(sys.argv[1], sys.argv[2])
