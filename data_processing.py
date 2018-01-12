@@ -128,6 +128,8 @@ def main(filename, labelfile):
 					mouse_idle_times_more_60 += 1
 		elif(class_type == 'Keys'):
 			keys_num += 1
+			if activity[0].holding:
+				hold_keys+=1
 			if (activity[0].text == "Back"):
 				if (activity[0].holding):
 					backspace_held += 1
