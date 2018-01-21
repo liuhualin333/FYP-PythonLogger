@@ -177,7 +177,7 @@ class SnifferThread(threading.Thread):
                 print "Transition is wrong"
                 self.transit = False
             # For Key pressing behavior
-            if keyVal == self.keyboard_last_key[0] and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000")) and (0 < idle_time < 0.06):
+            if keyVal == self.keyboard_last_key[0] and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and (combo_state == "0000" or printable_false_combo))) and (0 < idle_time < 0.06):
                 # HOLD THE KEY
                 self.pressing = True
             else:
@@ -190,7 +190,7 @@ class SnifferThread(threading.Thread):
             print event.Ascii
             if (not self.transit and (combo_state == "1000" or combo_state == "0100" or combo_state == "0010" or combo_state == "0000") and event.Ascii != 0):
                 self.transit = True
-            if (((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000"))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3])) and self.pressing:
+            if (((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and (combo_state == "0000" or printable_false_combo)))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3])) and self.pressing:
                 self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit, current_time, printable_false_combo)
                 self.keyboard_last_key[2] = current_time
                 self.pressing = False

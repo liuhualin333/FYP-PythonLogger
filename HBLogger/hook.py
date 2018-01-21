@@ -137,9 +137,6 @@ def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
 	    modifiers.append(keyname)
 	# No key holding
 	if (combo_state == "0000" or not transit):
-		"""if false_combo:
-			if is_special_key(key_list[-1][0]):
-				key_list.pop()"""
 		if len(modifiers) >= 1:
 			finalstring = ' '.join(modifiers)
 		elif len(string) >= 1:
@@ -169,9 +166,10 @@ def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
 				# Illegal combination
 				return
 			else:
-				#key_list.pop()
 				if len(modifiers) >= 1:
 					finalstring += ' '.join(modifiers)
+				elif type(string) == int and pressing:
+					finalstring = chr(string)
 				elif len(string) >= 1:
 					finalstring += string
 	if not pressing:
