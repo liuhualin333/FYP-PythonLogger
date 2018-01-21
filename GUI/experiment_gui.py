@@ -22,7 +22,7 @@ class GUI:
 		# Set exit behaviour
 		master.protocol("WM_DELETE_WINDOW", self.on_closing)
 		# File store location
-		self.path = os.path.expanduser("~\\.HBLog")
+		self.path = os.path.expanduser("~/.HBLog")
 
 		self.sniffer = None # HBLogger wrapper instance
 		self.video_proc = None
@@ -67,6 +67,7 @@ class GUI:
 		self.sniffer = Popen(["python", "./wrapper.py", "listener"])
 		filename = self.get_filename("exp_q"+str(self.session+1), "py")
 		filename = os.path.join(self.path,filename)
+		print filename
 		open(filename,"w").close()
 		self.file = Popen(["subl", "-n", filename])
 		self.label.configure(text="Finish the %s task within time limit" % self.session_text[self.session])

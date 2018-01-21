@@ -5,6 +5,8 @@ import os
 from PyQt4 import QtGui, QtCore
 from PyQt4.phonon import Phonon
 
+from win32api import GetSystemMetrics
+
 # File store location
 path = os.path.expanduser("~/.HBLog")
 def get_filename(name,ext):
@@ -41,7 +43,9 @@ class PollTimeThread(QtCore.QThread):
 class Window(QtGui.QMainWindow):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
-        self.setGeometry(20,20,1366-80,768-80)
+        self.screen_width = GetSystemMetrics(0)
+        self.screen_height = GetSystemMetrics(1)
+        self.setGeometry(20,20,self.screen_width-80,self.screen_height-80)
         self.last_survey = False
         self.video_name = app.arguments()
 
@@ -89,7 +93,7 @@ class Window(QtGui.QMainWindow):
         if (self.last_survey):
             self.central_widget.setCurrentWidget(self.ExitWidget)
         else:
-            self.setGeometry(20,20,1366-80,768-80)
+            self.setGeometry(20,20,self.screen_width-80,self.screen_height-80)
             self.central_widget.setCurrentWidget(self.VideoWidget)
             self.VideoWidget.media.play()
             self.VideoWidget.screen.play()
@@ -103,7 +107,7 @@ class VideoWidget(QtGui.QWidget):
         # media
         self.screen = Phonon.MediaObject(self)
         self.video_screen = Phonon.VideoWidget(self)
-        self.video_screen.setMinimumSize(1366, 768)
+        self.video_screen.setMinimumSize(self.parent.screen_width, self.parent.screen_height)
         self.screen.finished.connect(self.onFinished)
         # media
         self.media = Phonon.MediaObject(self)

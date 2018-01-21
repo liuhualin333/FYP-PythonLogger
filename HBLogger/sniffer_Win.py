@@ -88,11 +88,11 @@ class SnifferThread(threading.Thread):
         distance = math.sqrt(sum([(a-b)**2 for a,b in zip(x,y)]))
         return distance
 
-    def UpdateLastKey(self, event, keyVal, current_time, combo_state):
-        if (combo_state == "0000"):
+    def UpdateLastKey(self, event, keyVal, current_time, combo_state, printable_false_combo):
+        if (combo_state == "0000" or printable_false_combo):
             self.keyboard_last_key = [keyVal, event.Ascii, current_time, combo_state]
         # Correctly translate combination key
-        else:    
+        else:
             self.keyboard_last_key = [keyVal, pyHook.HookConstants.IDToName(event.KeyID), current_time, combo_state]
 
     # Record the event only on specific program
@@ -103,7 +103,7 @@ class SnifferThread(threading.Thread):
             procname = psutil.Process(ProcessID)
         except:
             return False
-        return (procname.name() == "pythonw.exe" or procname.name() == "sublime_text.exe")
+        return (procname.name() == "sublime_text.exe")
 
     # Handle the update of idle variable and run idle hook
     def HandleIdleEvent(self, event, mode):
@@ -160,7 +160,7 @@ class SnifferThread(threading.Thread):
         # print '---'
         
         current_time, idle_time, is_IDE, latest_event_time = self.HandleIdleEvent(event, "keyboard")
-
+        printable_false_combo = False
         if (not is_IDE):
             self.HandleLastMove(latest_event_time)
             return True
@@ -168,6 +168,8 @@ class SnifferThread(threading.Thread):
         # Check whether it is a combo
         combo_state = self.CheckSpecialKeyState()
         if event.MessageName == 'key down' or event.MessageName == 'key sys down':
+            if (event.Ascii >= 32 and event.Ascii <= 126 and combo_state != "0000"):
+                printable_false_combo = True
             print combo_state
             print 'Ascii:', event.Ascii, chr(event.Ascii)
             # If Transition is wrong
@@ -179,17 +181,17 @@ class SnifferThread(threading.Thread):
                 # HOLD THE KEY
                 self.pressing = True
             else:
-                self.UpdateLastKey(event, keyVal, current_time, combo_state)
+                self.UpdateLastKey(event, keyVal, current_time, combo_state, printable_false_combo)
                 self.pressing = False
             # Record every key down
             if not self.pressing:
-                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit, current_time)
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit, current_time, printable_false_combo)
         elif event.MessageName == 'key up':
             print event.Ascii
             if (not self.transit and (combo_state == "1000" or combo_state == "0100" or combo_state == "0010" or combo_state == "0000") and event.Ascii != 0):
                 self.transit = True
             if (((keyVal == self.keyboard_last_key[0]) and ((pyHook.HookConstants.IDToName(event.KeyID) == self.keyboard_last_key[1] and combo_state != "0000") or (event.Ascii == self.keyboard_last_key[1] and combo_state == "0000"))) or keyVal in self.ComboStateToKey(self.keyboard_last_key[3])) and self.pressing:
-                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit, current_time)
+                self.key_down_hook(self.keyboard_last_key, self.pressing, combo_state, self.transit, current_time, printable_false_combo)
                 self.keyboard_last_key[2] = current_time
                 self.pressing = False
         return True

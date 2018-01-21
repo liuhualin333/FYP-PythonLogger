@@ -111,12 +111,16 @@ def got_mouse_move(length, start_time, end_time):
 	print "Length: %d, Duration: %fs" % (length, duration)
 	move_list.append([duration,length,start_time])
 
-def got_key(key, pressing, combo_state, transit, timestamp):
+def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
 	modifiers = []
 	keyname = key[0]
 	if (combo_state != "0000"):
-		asciikey = key[1]
-		string = asciikey
+		if (false_combo):
+			asciikey = chr(key[1])
+			string = unicode(asciikey)
+		else:
+			asciikey = key[1]
+			string = asciikey
 	else:
 		asciikey = chr(key[1])
 		string = unicode(asciikey)
@@ -133,6 +137,16 @@ def got_key(key, pressing, combo_state, transit, timestamp):
 	    modifiers.append(keyname)
 	# No key holding
 	if (combo_state == "0000" or not transit):
+		"""if false_combo:
+			if is_special_key(key_list[-1][0]):
+				key_list.pop()"""
+		if len(modifiers) >= 1:
+			finalstring = ' '.join(modifiers)
+		elif len(string) >= 1:
+			finalstring = string
+	elif (false_combo):
+		if is_special_key(key_list[-1][0]) and key_list[-1][0] == translate_combo_state(combo_state).split("+")[0]:
+			key_list.pop()
 		if len(modifiers) >= 1:
 			finalstring = ' '.join(modifiers)
 		elif len(string) >= 1:
@@ -155,18 +169,19 @@ def got_key(key, pressing, combo_state, transit, timestamp):
 				# Illegal combination
 				return
 			else:
+				#key_list.pop()
 				if len(modifiers) >= 1:
 					finalstring += ' '.join(modifiers)
 				elif len(string) >= 1:
 					finalstring += string
 	if not pressing:
 		print finalstring
-		key_list.append([finalstring, False, timestamp])
+		key_list.append([finalstring, False, timestamp, false_combo])
 	# Key holding
 	else:
 		holdtime = time.time() - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
-		key_list.append([finalstring, True, timestamp, holdtime])
+		key_list.append([finalstring, True, timestamp, holdtime, false_combo])
 
 def got_key_idle(idle_time, timestamp):
 	if idle_time > const.IDLE_THRESHOLD:
