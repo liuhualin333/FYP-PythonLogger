@@ -3,7 +3,7 @@ import time
 import sqlalchemy
 import models
 import os.path
-from models import Click, Keys, Move, Idle
+from models import Click, Keys, Move, Idle, Not_Ide
 import pdb
 
 # Create different data file for different sessions
@@ -16,6 +16,7 @@ click_list = []
 move_list = []
 idle_list = []
 key_list = []
+not_ide_list = []
 
 def add_suffix(path, fname, name, ext, extnum):
 	while os.path.isfile(os.path.join(path, fname)):
@@ -57,6 +58,10 @@ def store_move(time, move, timestamp):
 
 def store_idle(idle_time, mode, timestamp):
 	session.add(Idle(idle_time, mode, timestamp))
+	trycommit()
+
+def store_not_ide(time, timestamp):
+	session.add(Not_Ide(time, timestamp))
 	trycommit()
 
 def store_key(key, holding, timestamp, *args):
@@ -177,9 +182,10 @@ def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
 		key_list.append([finalstring, False, timestamp, false_combo])
 	# Key holding
 	else:
-		holdtime = time.time() - keyHoldStart + const.PRESSING_COMPENSATION
+		holdtime = timestamp - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
-		key_list.append([finalstring, True, timestamp, holdtime, false_combo])
+		# Timestamp is the end time
+		key_list.append([finalstring, True, (timestamp - holdtime), holdtime, false_combo])
 
 def got_key_idle(idle_time, timestamp):
 	if idle_time > const.IDLE_THRESHOLD:
@@ -192,6 +198,10 @@ def got_mouse_idle(idle_time, timestamp):
 		# Let's not record implicit idleness
 		print "Mouse idle for %fs" % (idle_time)
 		idle_list.append([idle_time,"mouse",timestamp])
+
+def got_not_ide (time, timestamp):
+	print "Not IDE for %fs" % (time)
+	not_ide_list.append([time,timestamp])
 
 # Write stored data to SQL and close the program
 def write_data():
@@ -240,4 +250,6 @@ def write_data():
 			store_key(key[0], key[1], key[2], key[3])
 	for idle in idle_list:
 		store_idle(idle[0], idle[1], idle[2])
+	for not_ide in not_ide_list:
+		store_not_ide(not_ide[0], not_ide[1])
 	print("Dataset recorded")

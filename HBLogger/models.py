@@ -55,6 +55,17 @@ class Idle(SpookMixin, Base):
 		elif self.mode == "mouse":
 			return "<Mouse Idle for %fs>" % (self.idle_time)
 
+class Not_Ide(SpookMixin, Base):
+	time = Column(Float, nullable=False)
+	timestamp = Column(Float, nullable=False)
+
+	def __init__(self, time, timestamp):
+		self.time = time
+		self.timestamp = timestamp
+
+	def __repr__(self):
+		return "<Not Ide for %fs>" % (self.time)
+
 class Move(SpookMixin, Base):
 	time = Column(Float, nullable=False)
 	length = Column(Float, nullable=False)

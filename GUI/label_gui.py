@@ -164,7 +164,7 @@ class SurveyWidget(QtGui.QWidget):
                  "Confusion: What is this? What should I do? Why is it not working?",\
                  "Boredom: This question is not interesting.",\
                  "Neutral: I feel neither good nor bad.",\
-                 "Engagement: I know how to do it. I've got an idea!"]
+                 "Flow/Engagement: I know how to do it. I've got an idea!"]
         for idx,mood in enumerate(moods):
             mood_button = QtGui.QRadioButton(mood, self)
             mood_button.setFont(self.font)

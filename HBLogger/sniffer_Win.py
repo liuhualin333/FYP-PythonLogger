@@ -37,6 +37,8 @@ class SnifferThread(threading.Thread):
         self.drag_time = self.keyboard_last_idle_time
         self.drag_coord = "0_0"
         self.transit = True
+        self.not_ide = False
+        self.not_ide_start = time.time()
 
     def run(self):
         self.hm.KeyAll = self.OnKeyboardEvent
@@ -115,7 +117,7 @@ class SnifferThread(threading.Thread):
             # For the keyboard idle time to be updated outside the IDE
             if (not self.CheckProcess(event)):
                 self.keyboard_last_idle_time = current_time
-                return "", "", False, latest_event_time
+                return current_time, "", False, latest_event_time
 
             idle_time = current_time - self.keyboard_last_idle_time
             self.key_idle_hook(idle_time, self.keyboard_last_idle_time) # Record when does the idle start
@@ -125,7 +127,7 @@ class SnifferThread(threading.Thread):
             # For the mouse idle time to be updated outside the IDE
             if (not self.CheckProcess(event)):
                 self.mouse_last_idle_time = current_time
-                return "","",False, latest_event_time
+                return current_time,"",False, latest_event_time
 
             idle_time = current_time - self.mouse_last_idle_time
             self.mouse_idle_hook(idle_time, self.mouse_last_idle_time) # Record when does the idle start
@@ -150,6 +152,22 @@ class SnifferThread(threading.Thread):
             finalkey = keyname
         return finalkey
 
+    def HandleLastMove(self,time):
+        if (self.mouse_path_length != 0):
+            self.mouse_path_end_time = time
+            self.mouse_move_hook(self.mouse_path_length, self.mouse_path_start_time, self.mouse_path_end_time)
+            self.mouse_path = []
+            self.mouse_path_last_pos = None
+            self.mouse_path_length = 0
+            
+    def RecordNotIDE(self, mode, current_time):
+        if (mode == "start" and not self.not_ide):
+            self.not_ide = True
+            self.not_ide_start = current_time
+        elif (mode == "end" and self.not_ide):
+            self.not_ide_hook((current_time - self.not_ide_start), self.not_ide_start)
+            self.not_ide = False
+
     def OnKeyboardEvent(self, event):
         #For keyboard hold and keyboard idleness and record keydown
         # print 'MessageName:',event.MessageName
@@ -163,7 +181,10 @@ class SnifferThread(threading.Thread):
         printable_false_combo = False
         if (not is_IDE):
             self.HandleLastMove(latest_event_time)
+            self.RecordNotIDE("start", current_time)
             return True
+        self.RecordNotIDE("end", current_time)
+
         keyVal = self.IdentifyNonPrintChar(event)
         # Check whether it is a combo
         combo_state = self.CheckSpecialKeyState()
@@ -212,7 +233,9 @@ class SnifferThread(threading.Thread):
             self.drag_time = current_time
             self.drag_coord = "0_0"
             self.HandleLastMove(latest_event_time)
+            self.RecordNotIDE("start", current_time)
             return True
+        self.RecordNotIDE("end", current_time)
         self.HandleLastMove(current_time - idle_time)
         loc = event.Position
         if event.MessageName == "mouse right down":
@@ -233,22 +256,15 @@ class SnifferThread(threading.Thread):
             self.mouse_button_hook(2, loc[0], loc[1],current_time)
         return True
 
-    def HandleLastMove(self,time):
-        if (self.mouse_path_length != 0):
-            self.mouse_path_end_time = time
-            self.mouse_move_hook(self.mouse_path_length, self.mouse_path_start_time, self.mouse_path_end_time)
-            self.mouse_path = []
-            self.mouse_path_last_pos = None
-            self.mouse_path_length = 0
-
     def OnMouseMove(self, event):
         # print 'Position:',event.Position
         # print '---'
         current_time, idle_time, is_IDE, latest_event_time = self.HandleIdleEvent(event, "mouse")
-
         if (not is_IDE):
             self.HandleLastMove(latest_event_time)
+            self.RecordNotIDE("start", current_time)
             return True
+        self.RecordNotIDE("end", current_time)
         # print idle_time
         if idle_time < const.MOUSE_IDLE_THRESHOLD:
             # Mouse is moving
@@ -276,8 +292,9 @@ class SnifferThread(threading.Thread):
 
         if (not is_IDE):
             self.HandleLastMove(latest_event_time)
+            self.RecordNotIDE("start", current_time)
             return True
-
+        self.RecordNotIDE("end", current_time)
         self.HandleLastMove(current_time - idle_time)
         loc = event.Position
         if event.MessageName == "mouse wheel":
@@ -297,6 +314,7 @@ class Sniffer:
         self.key_idle_hook = lambda x: True
         self.mouse_idle_hook = lambda x: True
         self.write_data_hook = lambda x: True
+        self.not_ide_hook = lambda x: True
 
     def run(self):
         try:
@@ -308,6 +326,7 @@ class Sniffer:
             self.thread.key_down_hook = self.key_down_hook
             self.thread.key_idle_hook = self.key_idle_hook
             self.thread.mouse_idle_hook = self.mouse_idle_hook
+            self.thread.not_ide_hook = self.not_ide_hook
             self.thread.start()
             while True:
                 self.thread.join(100)
