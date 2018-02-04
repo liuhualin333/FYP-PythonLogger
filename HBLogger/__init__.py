@@ -20,7 +20,6 @@ def main():
 		sniffer1.key_idle_hook = hook.got_key_idle
 		sniffer1.mouse_idle_hook = hook.got_mouse_idle
 		sniffer1.write_data_hook = hook.write_data
-		sniffer1.not_ide_hook = hook.got_not_ide
 		sniffer1.run()
 
 	except SystemExit:

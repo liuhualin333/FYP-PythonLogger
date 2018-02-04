@@ -27,12 +27,15 @@ class Click(SpookMixin, Base):
 	button = Column(String(32), nullable=False)
 	x = Column(Integer, nullable=False)
 	y = Column(Integer, nullable=False)
+	is_ide = Column(Boolean)
 	timestamp = Column(Float, nullable=False)
 
-	def __init__(self, button, x, y, timestamp):
+	def __init__(self, button, x, y, timestamp, args):
 		self.button = button
 		self.x = x
 		self.y = y
+		if (button == "left" or button == "right" or button == "middle"):
+			self.is_ide = args[0]
 		self.timestamp = timestamp
 
 
@@ -55,16 +58,6 @@ class Idle(SpookMixin, Base):
 		elif self.mode == "mouse":
 			return "<Mouse Idle for %fs>" % (self.idle_time)
 
-class Not_Ide(SpookMixin, Base):
-	time = Column(Float, nullable=False)
-	timestamp = Column(Float, nullable=False)
-
-	def __init__(self, time, timestamp):
-		self.time = time
-		self.timestamp = timestamp
-
-	def __repr__(self):
-		return "<Not Ide for %fs>" % (self.time)
 
 class Move(SpookMixin, Base):
 	time = Column(Float, nullable=False)
@@ -84,6 +77,7 @@ class Keys(SpookMixin, Base):
 	text = Column(String(32), nullable=False)
 	holding = Column(Boolean, nullable=False)
 	time = Column(Float)
+	is_ide = Column(Boolean)
 	timestamp = Column(Float, nullable=False)
 
 	def __init__(self, text, holding, timestamp, args):
@@ -93,6 +87,8 @@ class Keys(SpookMixin, Base):
 		
 		if self.holding:
 			self.time = args[0]
+		else:
+			self.is_ide = args[0]
 	def __repr__(self):
 		if self.holding:
 			return "<Key %s hold for %f>" % (self.text, self.time)

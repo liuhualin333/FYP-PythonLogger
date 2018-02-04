@@ -3,8 +3,7 @@ import time
 import sqlalchemy
 import models
 import os.path
-from models import Click, Keys, Move, Idle, Not_Ide
-import pdb
+from models import Click, Keys, Move, Idle
 
 # Create different data file for different sessions
 fname = "log.db"
@@ -47,9 +46,9 @@ def trycommit():
 		except:
 			session.rollback()
 
-def store_click(button, x, y, timestamp):
+def store_click(button, x, y, timestamp, *args):
 	""" Stores incoming mouse-clicks """
-	session.add(Click(button, x, y, timestamp))
+	session.add(Click(button, x, y, timestamp, args))
 	trycommit()
 
 def store_move(time, move, timestamp):
@@ -58,10 +57,6 @@ def store_move(time, move, timestamp):
 
 def store_idle(idle_time, mode, timestamp):
 	session.add(Idle(idle_time, mode, timestamp))
-	trycommit()
-
-def store_not_ide(time, timestamp):
-	session.add(Not_Ide(time, timestamp))
 	trycommit()
 
 def store_key(key, holding, timestamp, *args):
@@ -90,33 +85,36 @@ def translate_combo_state(combo_state):
 		finalstring += "Win+"
 	return finalstring
 
-def got_mouse_click(category, x, y, timestamp):
-	if category == 1:
-		print "mouse left down (%d, %d)" % (x, y)
-		button = "left"
-	elif category == 2:
-		print "mouse middle down (%d, %d)" % (x, y)
-		button = "middle"
-	elif category == 3:
-		print "mouse right down (%d, %d)" % (x, y)
-		button = "right"
-	elif category == 4:
-		print "mouse wheel roll up (%d, %d)" % (x, y)
-		button = "wheelUp"
-	elif category == 5:
-		print "mouse wheel roll down (%d, %d)" % (x, y)
-		button = "wheelDown"
-	elif category == 6:
-		print "mouse drag event captured"
-		button = "drag"
-	click_list.append([button,x,y,timestamp])
-
+def got_mouse_click(category, x, y, timestamp, *args):
+	if category <= 3:
+		if category == 1:
+			print "mouse left down (%d, %d)" % (x, y)
+			button = "left"
+		elif category == 2:
+			print "mouse middle down (%d, %d)" % (x, y)
+			button = "middle"
+		elif category == 3:
+			print "mouse right down (%d, %d)" % (x, y)
+			button = "right"
+		click_list.append([button, x, y, timestamp, args[0]])
+	else:
+		if category == 4:
+			print "mouse wheel roll up (%d, %d)" % (x, y)
+			button = "wheelUp"
+		elif category == 5:
+			print "mouse wheel roll down (%d, %d)" % (x, y)
+			button = "wheelDown"
+		elif category == 6:
+			print "mouse drag event captured"
+			button = "drag"
+		click_list.append([button, x, y, timestamp])
+			
 def got_mouse_move(length, start_time, end_time):
 	duration = end_time - start_time
 	print "Length: %d, Duration: %fs" % (length, duration)
 	move_list.append([duration,length,start_time])
 
-def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
+def got_key(key, pressing, combo_state, transit, timestamp, false_combo, *args):
 	modifiers = []
 	keyname = key[0]
 	if (combo_state != "0000"):
@@ -179,13 +177,13 @@ def got_key(key, pressing, combo_state, transit, timestamp, false_combo):
 					finalstring += string
 	if not pressing:
 		print finalstring
-		key_list.append([finalstring, False, timestamp, false_combo])
+		key_list.append([finalstring, False, timestamp, args[0]])
 	# Key holding
 	else:
 		holdtime = timestamp - keyHoldStart + const.PRESSING_COMPENSATION
 		print "Hold <%s> key for %fs" % (finalstring, holdtime)
 		# Timestamp is the end time
-		key_list.append([finalstring, True, (timestamp - holdtime), holdtime, false_combo])
+		key_list.append([finalstring, True, (timestamp - holdtime), holdtime])
 
 def got_key_idle(idle_time, timestamp):
 	if idle_time > const.IDLE_THRESHOLD:
@@ -198,10 +196,6 @@ def got_mouse_idle(idle_time, timestamp):
 		# Let's not record implicit idleness
 		print "Mouse idle for %fs" % (idle_time)
 		idle_list.append([idle_time,"mouse",timestamp])
-
-def got_not_ide (time, timestamp):
-	print "Not IDE for %fs" % (time)
-	not_ide_list.append([time,timestamp])
 
 # Write stored data to SQL and close the program
 def write_data():
@@ -232,7 +226,10 @@ def write_data():
 			if (wheelFlag):
 				store_click(wheelDirection, 0, 0, wheelStart)
 				wheelFlag, wheelDirection, wheelStart, wheelTime = set_wheel_constant()
-			store_click(click[0], click[1], click[2], click[3])
+			if (len(click) == 4):
+				store_click(click[0], click[1], click[2], click[3])
+			else:
+				store_click(click[0], click[1], click[2], click[3], click[4])
 	for move in move_list:
 		store_move(move[0], move[1], move[2])
 	for idx,key in enumerate(key_list):
@@ -244,12 +241,7 @@ def write_data():
 		# Eliminate two key record leading the hold event
 		if ((idx < len(key_list) - 2 and key_list[idx][0] == key_list[idx+2][0] and key_list[idx+2][1])) or ((idx < len(key_list) - 1 and key_list[idx][0] == key_list[idx+1][0] and key_list[idx+1][1])):
 			continue
-		if (len(key) < 4):
-			store_key(key[0], key[1], key[2])
-		else:
-			store_key(key[0], key[1], key[2], key[3])
+		store_key(key[0], key[1], key[2], key[3])
 	for idle in idle_list:
 		store_idle(idle[0], idle[1], idle[2])
-	for not_ide in not_ide_list:
-		store_not_ide(not_ide[0], not_ide[1])
 	print("Dataset recorded")
