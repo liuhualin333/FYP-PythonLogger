@@ -44,10 +44,10 @@ def main(mode):
 	elif (mode == "record_vid"):
 		print("Video Recording")
 		subprocess.Popen(["ffmpeg", "-v", "0", "-f", "dshow", "-video_size", "640x480", "-i", "video=C922 Pro Stream Webcam",\
-		 "-b:v", "4M", "-preset:v", "ultrafast", sys.argv[2]])
+		 "-b:v", "4M", "-preset:v", "ultrafast", "-filter:v", "setpts=0.5*PTS", sys.argv[2]])
 	elif (mode == "record_screen"):
 		print("Screen Recording")
-		subprocess.Popen(["ffmpeg", "-v", "0", "-f", "dshow", "-i", "video=screen-capture-recorder", sys.argv[2]])
+		subprocess.Popen(["ffmpeg", "-v", "0", "-f", "dshow", "-i", "video=screen-capture-recorder", "-b:v", "4M", "-preset:v", "ultrafast", "-filter:v", "setpts=0.5*PTS", sys.argv[2]])
 
 if __name__ == "__main__":
 	mode_string = sys.argv[1]

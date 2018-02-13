@@ -73,7 +73,7 @@ class Window(QtGui.QMainWindow):
         mins,secs = divmod(int(lapse),60) # (math.floor(a/b),a%b)
         timeformat = '%d:%d'%(mins,secs)
         # stop when 1 min is reached
-        if (int(lapse) % 60 == 0 and int(lapse) >= 60):
+        if (int(lapse) % 30 == 0 and int(lapse) >= 30):
             self.switchToSurveyPage()
 
     def startTimer(self):
@@ -113,10 +113,8 @@ class VideoWidget(QtGui.QWidget):
         self.media = Phonon.MediaObject(self)
         self.video = Phonon.VideoWidget(self)
         self.video.setMinimumSize(640, 480)
-
         Phonon.createPath(self.media, self.video)
         Phonon.createPath(self.screen, self.video_screen)
-
         self.video_screen.move(0,0)
         point = parent.rect().bottomRight()
         global_point = parent.mapToGlobal(point)
